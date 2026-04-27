@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Compass,
   Cpu,
+  Columns,
   PanelsTopLeft,
   Route,
   X,
@@ -39,6 +40,7 @@ function App() {
   const [selectedModuleId, setSelectedModuleId] = useState(curriculum[0].id);
   const [selectedSectionId, setSelectedSectionId] = useState(curriculum[0].sections[0].id);
   const [activeTab, setActiveTab] = useState<ActiveTab>("theory");
+  const [splitMode, setSplitMode] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => window.localStorage.getItem(onboardingKey) !== "1");
   const visitRef = useRef({ sectionId: curriculum[0].sections[0].id, startedAt: Date.now() });
   const { theme, toggle: toggleTheme } = useTheme();
@@ -350,6 +352,10 @@ function App() {
             <p>{currentModule.summary}</p>
           </div>
           <div className="topbar-actions">
+            <button className={`icon-button text-button ${splitMode ? "is-active" : ""}`} onClick={() => setSplitMode(s => !s)} title="분할 뷰 토글" type="button">
+              <Columns size={15} aria-hidden />
+              {splitMode ? "단일 뷰" : "좌우 분할"}
+            </button>
             <PomodoroTimer onSessionComplete={() => logStudy(currentSection.id, 25 * 60 * 1000)} />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <label className="section-select">
@@ -391,36 +397,44 @@ function App() {
 
         <SectionTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        <div className="tab-body">
-          {activeTab === "theory" && (
-            <>
+        <div className={`tab-body ${splitMode ? "split-mode-active" : ""}`}>
+          {(activeTab === "theory" || splitMode) && (
+            <div className="split-left">
               <TheoryPanel section={currentSection} />
               <NotesEditor
                 sectionId={currentSection.id}
                 value={(progress.notes ?? {})[currentSection.id] ?? ""}
                 onSave={saveNote}
               />
-            </>
+            </div>
           )}
-          {activeTab === "practice" && (
-            <PracticePanel
-              onSaveCode={(language, code) => saveUserCode(currentSection.id, language, code)}
-              savedCode={(progress.userCode ?? {})[currentSection.id] ?? {}}
-              section={currentSection}
-            />
-          )}
-          {activeTab === "quiz" && (
-            <QuizPanel
-              bestScore={progress.quizScores[currentSection.id] ?? 0}
-              onSaveAnswer={(questionId, answer) => saveQuizAnswer(currentSection.id, questionId, answer)}
-              onResetAnswers={() => resetQuizAnswers(currentSection.id)}
-              onRecordWrongAnswers={recordWrongAnswers}
-              onSaveScore={(score) => saveQuizScore(currentSection.id, score)}
-              savedAnswers={(progress.quizAnswers ?? {})[currentSection.id] ?? {}}
-              section={currentSection}
-            />
-          )}
-          {activeTab === "visual" && <VisualizerHub id={currentSection.visualizerId} section={currentSection} />}
+          
+          <div className="split-right">
+            {splitMode && activeTab === "theory" && (
+              <div className="split-placeholder" style={{ padding: "40px", textAlign: "center", color: "var(--muted)", border: "1px dashed var(--line)", borderRadius: "8px", marginTop: "18px" }}>
+                상단 탭에서 실습, 문제, 시각화를 선택해 좌우 분할 모드로 학습하세요.
+              </div>
+            )}
+            {activeTab === "practice" && (
+              <PracticePanel
+                onSaveCode={(language, code) => saveUserCode(currentSection.id, language, code)}
+                savedCode={(progress.userCode ?? {})[currentSection.id] ?? {}}
+                section={currentSection}
+              />
+            )}
+            {activeTab === "quiz" && (
+              <QuizPanel
+                bestScore={progress.quizScores[currentSection.id] ?? 0}
+                onSaveAnswer={(questionId, answer) => saveQuizAnswer(currentSection.id, questionId, answer)}
+                onResetAnswers={() => resetQuizAnswers(currentSection.id)}
+                onRecordWrongAnswers={recordWrongAnswers}
+                onSaveScore={(score) => saveQuizScore(currentSection.id, score)}
+                savedAnswers={(progress.quizAnswers ?? {})[currentSection.id] ?? {}}
+                section={currentSection}
+              />
+            )}
+            {activeTab === "visual" && <VisualizerHub id={currentSection.visualizerId} section={currentSection} />}
+          </div>
         </div>
 
         <nav className="session-nav" aria-label="세션 이동">

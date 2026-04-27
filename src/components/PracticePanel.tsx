@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { cpp as cppLanguage } from "@codemirror/lang-cpp";
 import { python as pythonLanguage } from "@codemirror/lang-python";
-import { CheckCircle2, ClipboardCheck, Eye, RotateCcw, Terminal, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Download, Eye, RotateCcw, Terminal, XCircle } from "lucide-react";
 import { CodeLabBlock } from "./CodeLabBlock";
 import { ExecutableLab } from "./ExecutableLab";
+import { exportRos2Workspace } from "../utils/exportPkg";
 import type { LessonSection, PracticeBlock } from "../types";
 
 type PracticePanelProps = {
@@ -33,11 +34,13 @@ function PracticeBlockView({
   language,
   code,
   onChange,
+  onExport,
 }: {
   block: PracticeBlock;
   language: PracticeKind;
   code: string;
   onChange: (code: string) => void;
+  onExport: () => void;
 }) {
   const [showSolution, setShowSolution] = useState(false);
   const examples = useMemo(() => block.examples?.filter((example) => example.language === language) ?? [], [block.examples, language]);
@@ -110,6 +113,10 @@ function PracticeBlockView({
             </span>
           </div>
           <div className="code-actions">
+            <button className="icon-button text-button" onClick={onExport} type="button">
+              <Download size={15} aria-hidden />
+              ROS2 Zip 내보내기
+            </button>
             <button className="icon-button text-button" onClick={() => onChange(displayedCode)} type="button">
               <RotateCcw size={15} aria-hidden />
               초기화
@@ -205,7 +212,7 @@ export function PracticePanel({ section, savedCode, onSaveCode }: PracticePanelP
           Python
         </button>
       </div>
-      <PracticeBlockView block={block} code={code} language={language} onChange={(nextCode) => onSaveCode(language, nextCode)} />
+      <PracticeBlockView block={block} code={code} language={language} onChange={(nextCode) => onSaveCode(language, nextCode)} onExport={() => exportRos2Workspace(section.id, language, code)} />
       <ExecutableLab section={section} />
     </section>
   );

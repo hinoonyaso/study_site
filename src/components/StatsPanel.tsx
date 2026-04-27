@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { BarChart3, Flame, TrendingUp, AlertTriangle } from "lucide-react";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { CurriculumModule, ProgressState } from "../types";
 
 type StatsPanelProps = {
@@ -126,18 +127,31 @@ export function StatsPanel({ modules, progress }: StatsPanelProps) {
       {/* Module scores */}
       {moduleScores.some((m) => m.count > 0) && (
         <div className="module-scores">
-          <small>모듈별 퀴즈 평균</small>
-          {moduleScores
-            .filter((m) => m.count > 0)
-            .map((m) => (
-              <div className="module-score-row" key={m.title}>
-                <span>{m.title}</span>
-                <div className="score-bar-wrap">
-                  <div className="score-bar" style={{ width: `${m.avg}%` }} />
+          <small>모듈별 약점 분석 (Score Radar)</small>
+          <div style={{ width: "100%", height: "250px", marginTop: "12px" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={moduleScores.filter(m => m.count > 0)}>
+                <PolarGrid stroke="var(--line)" />
+                <PolarAngleAxis dataKey="title" tick={{ fill: "var(--foreground)", fontSize: 10 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "var(--surface)", borderColor: "var(--line)", color: "var(--foreground)" }} />
+                <Radar name="평균 점수" dataKey="avg" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.4} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ marginTop: "12px" }}>
+            {moduleScores
+              .filter((m) => m.count > 0)
+              .map((m) => (
+                <div className="module-score-row" key={m.title}>
+                  <span>{m.title}</span>
+                  <div className="score-bar-wrap">
+                    <div className="score-bar" style={{ width: `${m.avg}%` }} />
+                  </div>
+                  <strong>{m.avg}점</strong>
                 </div>
-                <strong>{m.avg}점</strong>
-              </div>
-            ))}
+              ))}
+          </div>
         </div>
       )}
 

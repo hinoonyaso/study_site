@@ -45,6 +45,7 @@ const v2QuestionTypeLabel: Record<QuizQuestionV2["type"], string> = {
   safety_analysis: "안전 판단",
   integration_pipeline: "통합 파이프라인",
   counterexample: "반례 찾기",
+  cli_command: "터미널 명령어",
 };
 
 const v2DifficultyLabel: Record<QuizQuestionV2["difficulty"], "기초" | "계산" | "전문"> = {
@@ -248,7 +249,20 @@ function QuizPanelV2({
                   반례 힌트: <MathText text={question.counterexampleHint} />
                 </div>
               )}
-              {question.choices?.length ? (
+              {question.type === "cli_command" ? (
+                <div className="mock-terminal" style={{ background: "#1e1e1e", color: "#d4d4d4", borderRadius: "6px", fontFamily: "monospace", padding: "10px", marginTop: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    <span style={{ color: "#4ade80" }}>sang@ros2-env:~$</span>
+                  </div>
+                  <input
+                    aria-label={`${index + 1}번 터미널 명령어`}
+                    onChange={(event) => setAnswer(question.id, event.target.value)}
+                    placeholder="명령어를 입력하세요"
+                    style={{ background: "transparent", border: "none", color: "#fff", outline: "none", width: "100%", fontFamily: "inherit" }}
+                    value={answer}
+                  />
+                </div>
+              ) : question.choices?.length ? (
                 <div className="choice-list">
                   {question.choices.map((choice) => (
                     <label className="choice" key={choice}>
@@ -272,6 +286,23 @@ function QuizPanelV2({
                     {isCorrect ? `정답 · ${maxPoints}점` : `부분/오답 · ${earned.toFixed(1)}/${maxPoints}점 · 기준답: ${question.expectedAnswer}`}
                   </strong>
                   <span><MathText text={question.explanation} /></span>
+                  {!isCorrect && question.relatedTheoryId && (
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        const target = document.getElementById(question.relatedTheoryId!);
+                        if (target) {
+                          target.scrollIntoView({ behavior: "smooth", block: "start" });
+                          target.style.outline = "2px solid var(--primary)";
+                          setTimeout(() => { target.style.outline = ""; }, 2000);
+                        }
+                      }}
+                      style={{ marginTop: "8px" }}
+                      type="button"
+                    >
+                      해당 이론 복습하기
+                    </button>
+                  )}
                   {(question.stepByStepExplanation?.length ?? 0) > 0 && (
                     <ol className="step-list compact-list">
                       {question.stepByStepExplanation?.map((step) => (
@@ -439,7 +470,20 @@ function QuizPanelLegacy({
                 </pre>
               )}
 
-              {question.type === "blank" || question.type === "numeric" || question.type === "formulaBlank" ? (
+              {question.type === "cli_command" ? (
+                <div className="mock-terminal" style={{ background: "#1e1e1e", color: "#d4d4d4", borderRadius: "6px", fontFamily: "monospace", padding: "10px", marginTop: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    <span style={{ color: "#4ade80" }}>sang@ros2-env:~$</span>
+                  </div>
+                  <input
+                    aria-label={`${index + 1}번 터미널 명령어`}
+                    onChange={(event) => setAnswer(question.id, event.target.value)}
+                    placeholder="명령어를 입력하세요"
+                    style={{ background: "transparent", border: "none", color: "#fff", outline: "none", width: "100%", fontFamily: "inherit" }}
+                    value={answer}
+                  />
+                </div>
+              ) : question.type === "blank" || question.type === "numeric" || question.type === "formulaBlank" ? (
                 <div className="formula-answer">
                   <FormulaInputToolbar onInsert={(token) => setAnswer(question.id, `${answer}${token}`)} />
                   {question.formulaSymbols && (
@@ -496,6 +540,23 @@ function QuizPanelLegacy({
                       : `부분/오답 · ${earned.toFixed(1)}/${maxPoints}점 · 기준답: ${question.answer}`}
                   </strong>
                   <span><MathText text={question.explanation} /></span>
+                  {!isCorrect && question.relatedTheoryId && (
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        const target = document.getElementById(question.relatedTheoryId!);
+                        if (target) {
+                          target.scrollIntoView({ behavior: "smooth", block: "start" });
+                          target.style.outline = "2px solid var(--primary)";
+                          setTimeout(() => { target.style.outline = ""; }, 2000);
+                        }
+                      }}
+                      style={{ marginTop: "8px" }}
+                      type="button"
+                    >
+                      해당 이론 복습하기
+                    </button>
+                  )}
                   {question.expectedSteps && (
                     <ol className="step-list compact-list">
                       {question.expectedSteps.map((step) => (

@@ -49,6 +49,7 @@ const errorByType: Record<ExamQuestionType, ErrorType> = {
   system_design: "system_design_error",
   safety_analysis: "safety_misjudgment",
   integration_pipeline: "system_design_error",
+  cli_command: "code_logic_error",
 };
 
 const q = (

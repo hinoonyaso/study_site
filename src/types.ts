@@ -139,7 +139,7 @@ export type QuizDifficulty = "기초" | "계산" | "유도" | "전문";
 
 export type QuizQuestion = {
   id: string;
-  type: "choice" | "trueFalse" | "blank" | "numeric" | "formulaBlank" | "derivationStep" | "codeTrace";
+  type: "choice" | "trueFalse" | "blank" | "numeric" | "formulaBlank" | "derivationStep" | "codeTrace" | "cli_command";
   prompt: string;
   difficulty?: QuizDifficulty;
   choices?: string[];
@@ -154,6 +154,7 @@ export type QuizQuestion = {
   formulaSymbols?: string[];
   points?: number;
   explanation: string;
+  relatedTheoryId?: string;
 };
 
 export type PracticeParameter = {
@@ -223,7 +224,8 @@ export type QuizQuestionTypeV2 =
   | "system_design"
   | "safety_analysis"
   | "integration_pipeline"
-  | "counterexample";
+  | "counterexample"
+  | "cli_command";
 
 export type ErrorType =
   | "concept_confusion"
@@ -265,6 +267,7 @@ export type QuizQuestionV2 = {
   counterexampleHint?: string;
   expectedFailureMode?: string;
   wrongAnswerAnalysis: WrongAnswerAnalysis;
+  relatedTheoryId?: string;
 };
 
 export type VisualizationSpec = {

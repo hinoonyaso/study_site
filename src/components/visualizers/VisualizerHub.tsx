@@ -10,7 +10,7 @@ import { QuaternionSlerpVisualizer } from "./QuaternionSlerpVisualizer";
 import { Sim2RealGapVisualizer } from "./Sim2RealGapVisualizer";
 import { SO3RotationVisualizer } from "./SO3RotationVisualizer";
 import { ThreeRobotArmVisualizer } from "./ThreeRobotArmVisualizer";
-import type { LessonSection, TheoryGraphId, VisualizerId } from "../../types";
+import type { LessonSection, TheoryGraphId, VisualizationSpec, VisualizerId } from "../../types";
 
 type VisualizerHubProps = {
   id?: VisualizerId;
@@ -147,6 +147,72 @@ function LinearAlgebraVisualizer() {
   );
 }
 
+function MatrixGridVisualizer() {
+  const [scaleX, setScaleX] = useState(1.4);
+  const [shear, setShear] = useState(0.4);
+  const [forceAngle, setForceAngle] = useState(90);
+  const width = 430;
+  const height = 300;
+  const scale = 54;
+  const origin = worldToSvg({ x: 0, y: 0 }, width, height, scale);
+  const transform = (point: Point) => ({
+    x: scaleX * point.x + shear * point.y,
+    y: point.y,
+  });
+  const det = scaleX;
+  const forceRad = (forceAngle * Math.PI) / 180;
+  const r = { x: 0.8, y: 0 };
+  const force = { x: Math.cos(forceRad), y: Math.sin(forceRad) };
+  const torqueZ = r.x * force.y - r.y * force.x;
+  const gridLines = Array.from({ length: 9 }, (_, index) => index - 4);
+  const line = (a: Point, b: Point) => {
+    const ta = worldToSvg(transform(a), width, height, scale);
+    const tb = worldToSvg(transform(b), width, height, scale);
+    return { ta, tb };
+  };
+  const forceEnd = worldToSvg({ x: r.x + force.x * 0.9, y: r.y + force.y * 0.9 }, width, height, scale);
+  const lever = worldToSvg(r, width, height, scale);
+
+  return (
+    <VisualFrame
+      icon={<Grid3X3 size={18} aria-hidden />}
+      metrics={[
+        ["det(A)", det.toFixed(2)],
+        ["tau_z", torqueZ.toFixed(2)],
+        ["inverse", Math.abs(det) < 0.08 ? "unstable" : "ok"],
+      ]}
+      title="Matrix Grid / Cross Product"
+    >
+      <div className="visual-layout">
+        <div className="control-stack">
+          <Slider label="scale x" max={3} min={0.1} onChange={setScaleX} step={0.05} value={scaleX} />
+          <Slider label="shear xy" max={1.5} min={-1.5} onChange={setShear} step={0.05} value={shear} />
+          <Slider label="force angle" max={180} min={-180} onChange={setForceAngle} step={1} suffix="°" value={forceAngle} />
+        </div>
+        <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
+          <line className="axis" x1="20" x2={width - 20} y1={origin.y} y2={origin.y} />
+          <line className="axis" x1={origin.x} x2={origin.x} y1="20" y2={height - 20} />
+          {gridLines.map((value) => {
+            const vertical = line({ x: value, y: -3.5 }, { x: value, y: 3.5 });
+            const horizontal = line({ x: -3.5, y: value }, { x: 3.5, y: value });
+            return (
+              <g key={value}>
+                <line className="grid-line-soft" x1={vertical.ta.x} x2={vertical.tb.x} y1={vertical.ta.y} y2={vertical.tb.y} />
+                <line className="grid-line-soft" x1={horizontal.ta.x} x2={horizontal.tb.x} y1={horizontal.ta.y} y2={horizontal.tb.y} />
+              </g>
+            );
+          })}
+          <line className="vector original" x1={origin.x} x2={lever.x} y1={origin.y} y2={lever.y} />
+          <line className="vector result" x1={lever.x} x2={forceEnd.x} y1={lever.y} y2={forceEnd.y} />
+          <circle className="joint" cx={origin.x} cy={origin.y} r="5" />
+          <circle className="point result" cx={lever.x} cy={lever.y} r="5" />
+          <text x={forceEnd.x + 8} y={forceEnd.y - 8}>F</text>
+        </svg>
+      </div>
+    </VisualFrame>
+  );
+}
+
 function ManipulatorVisualizer() {
   const [q1, setQ1] = useState(35);
   const [q2, setQ2] = useState(55);
@@ -202,6 +268,33 @@ function ManipulatorVisualizer() {
     x: sEe.x + xdot.x * 76,
     y: sEe.y - xdot.y * 76,
   };
+  const j11 = -l1 * Math.sin(a1) - l2 * Math.sin(a1 + a2);
+  const j12 = -l2 * Math.sin(a1 + a2);
+  const j21 = l1 * Math.cos(a1) + l2 * Math.cos(a1 + a2);
+  const j22 = l2 * Math.cos(a1 + a2);
+  const jj00 = j11 * j11 + j12 * j12;
+  const jj01 = j11 * j21 + j12 * j22;
+  const jj11 = j21 * j21 + j22 * j22;
+  const trace = jj00 + jj11;
+  const discr = Math.sqrt(Math.max(0, (jj00 - jj11) ** 2 + 4 * jj01 ** 2));
+  const lambdaMax = Math.max(0, (trace + discr) / 2);
+  const lambdaMin = Math.max(0, (trace - discr) / 2);
+  const ellipseAngle = (Math.atan2(2 * jj01, jj00 - jj11) * 90) / Math.PI;
+  const ikTrace = Array.from({ length: 7 }, (_, index) => {
+    const alpha = index / 6;
+    const q1Step = a1 + (ikQ1 - a1) * (1 - Math.exp(-3 * alpha));
+    const q2Step = a2 + (ikQ2 - a2) * (1 - Math.exp(-3 * alpha));
+    const p = {
+      x: l1 * Math.cos(q1Step) + l2 * Math.cos(q1Step + q2Step),
+      y: l1 * Math.sin(q1Step) + l2 * Math.sin(q1Step + q2Step),
+    };
+    return { point: worldToSvg(p, width, height, scale), error: Math.hypot(targetX - p.x, targetY - p.y) };
+  });
+  const transformRows = [
+    ["T01", `${Math.cos(a1).toFixed(2)} ${(-Math.sin(a1)).toFixed(2)} ${joint.x.toFixed(2)}`],
+    ["T12", `${Math.cos(a2).toFixed(2)} ${(-Math.sin(a2)).toFixed(2)} ${l2.toFixed(2)}`],
+    ["T02", `${Math.cos(a1 + a2).toFixed(2)} ${(-Math.sin(a1 + a2)).toFixed(2)} ${ee.x.toFixed(2)}`],
+  ];
 
   return (
     <VisualFrame
@@ -214,34 +307,62 @@ function ManipulatorVisualizer() {
       ]}
       title="2링크 FK / IK"
     >
-      <div className="visual-layout">
-        <div className="control-stack">
-          <Slider label="q1" max={180} min={-180} onChange={setQ1} step={1} suffix="°" value={q1} />
-          <Slider label="q2" max={180} min={-180} onChange={setQ2} step={1} suffix="°" value={q2} />
-          <Slider label="target x" max={1.6} min={-1.6} onChange={setTargetX} step={0.05} value={targetX} />
-          <Slider label="target y" max={1.6} min={-1.6} onChange={setTargetY} step={0.05} value={targetY} />
-          {isSingular && <div className="singularity-banner">singularity 근처 · q2가 0° 또는 180°에 가까움</div>}
+      <>
+        <div className="visual-layout">
+          <div className="control-stack">
+            <Slider label="q1" max={180} min={-180} onChange={setQ1} step={1} suffix="°" value={q1} />
+            <Slider label="q2" max={180} min={-180} onChange={setQ2} step={1} suffix="°" value={q2} />
+            <Slider label="target x" max={1.6} min={-1.6} onChange={setTargetX} step={0.05} value={targetX} />
+            <Slider label="target y" max={1.6} min={-1.6} onChange={setTargetY} step={0.05} value={targetY} />
+            {isSingular && <div className="singularity-banner">singularity 근처 · q2가 0° 또는 180°에 가까움</div>}
+          </div>
+          <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
+            <circle className="workspace-ring" cx={origin.x} cy={origin.y} r={(l1 + l2) * scale} />
+            {workspace.map((point, index) => {
+              const sample = worldToSvg(point, width, height, scale);
+              return <circle className="workspace-sample" cx={sample.x} cy={sample.y} key={index} r="1.8" />;
+            })}
+            <line className="axis" x1="20" x2={width - 20} y1={origin.y} y2={origin.y} />
+            <line className="axis" x1={origin.x} x2={origin.x} y1="20" y2={height - 20} />
+            <line className="link ghost" x1={origin.x} x2={sIkJoint.x} y1={origin.y} y2={sIkJoint.y} />
+            <line className="link ghost" x1={sIkJoint.x} x2={sIkEe.x} y1={sIkJoint.y} y2={sIkEe.y} />
+            <line className="link" x1={origin.x} x2={sJoint.x} y1={origin.y} y2={sJoint.y} />
+            <line className="link" x1={sJoint.x} x2={sEe.x} y1={sJoint.y} y2={sEe.y} />
+            <line className="velocity-arrow" x1={sEe.x} x2={sVelocityEnd.x} y1={sEe.y} y2={sVelocityEnd.y} />
+            <ellipse
+              className="manip-ellipse"
+              cx={sEe.x}
+              cy={sEe.y}
+              rx={Math.max(4, Math.sqrt(lambdaMax) * 32)}
+              ry={Math.max(2, Math.sqrt(lambdaMin) * 32)}
+              transform={`rotate(${ellipseAngle} ${sEe.x} ${sEe.y})`}
+            />
+            <polyline className="ik-trace-line" points={polyline(ikTrace.map((item) => item.point))} />
+            {ikTrace.map((item, index) => (
+              <circle className="ik-trace-dot" cx={item.point.x} cy={item.point.y} key={index} r={2.5 + index * 0.35} />
+            ))}
+            <circle className="joint" cx={origin.x} cy={origin.y} r="6" />
+            <circle className="joint" cx={sJoint.x} cy={sJoint.y} r="6" />
+            <circle className="point result" cx={sEe.x} cy={sEe.y} r="6" />
+            <circle className="point target" cx={sTarget.x} cy={sTarget.y} r="6" />
+            <text x={sTarget.x + 8} y={sTarget.y - 8}>target</text>
+          </svg>
         </div>
-        <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
-          <circle className="workspace-ring" cx={origin.x} cy={origin.y} r={(l1 + l2) * scale} />
-          {workspace.map((point, index) => {
-            const sample = worldToSvg(point, width, height, scale);
-            return <circle className="workspace-sample" cx={sample.x} cy={sample.y} key={index} r="1.8" />;
-          })}
-          <line className="axis" x1="20" x2={width - 20} y1={origin.y} y2={origin.y} />
-          <line className="axis" x1={origin.x} x2={origin.x} y1="20" y2={height - 20} />
-          <line className="link ghost" x1={origin.x} x2={sIkJoint.x} y1={origin.y} y2={sIkJoint.y} />
-          <line className="link ghost" x1={sIkJoint.x} x2={sIkEe.x} y1={sIkJoint.y} y2={sIkEe.y} />
-          <line className="link" x1={origin.x} x2={sJoint.x} y1={origin.y} y2={sJoint.y} />
-          <line className="link" x1={sJoint.x} x2={sEe.x} y1={sJoint.y} y2={sEe.y} />
-          <line className="velocity-arrow" x1={sEe.x} x2={sVelocityEnd.x} y1={sEe.y} y2={sVelocityEnd.y} />
-          <circle className="joint" cx={origin.x} cy={origin.y} r="6" />
-          <circle className="joint" cx={sJoint.x} cy={sJoint.y} r="6" />
-          <circle className="point result" cx={sEe.x} cy={sEe.y} r="6" />
-          <circle className="point target" cx={sTarget.x} cy={sTarget.y} r="6" />
-          <text x={sTarget.x + 8} y={sTarget.y - 8}>target</text>
-        </svg>
-      </div>
+        <div className="matrix-step-grid">
+          {transformRows.map(([label, value]) => (
+            <div className="matrix-card" key={label}>
+              <span>{label}</span>
+              <code>{value}</code>
+            </div>
+          ))}
+        </div>
+        <div className="ik-trace-summary">
+          <strong>IK convergence</strong>
+          {ikTrace.map((item, index) => (
+            <span key={index}>#{index}: e={item.error.toFixed(3)}</span>
+          ))}
+        </div>
+      </>
     </VisualFrame>
   );
 }
@@ -491,6 +612,61 @@ function PurePursuitVisualizer() {
           <circle className="point result" cx={sRobot.x} cy={sRobot.y} r="7" />
           <circle className="point target" cx={sTarget.x} cy={sTarget.y} r="7" />
           <text x={sRobot.x + 8} y={sRobot.y - 8}>robot</text>
+        </svg>
+      </div>
+    </VisualFrame>
+  );
+}
+
+function BicycleStanleyVisualizer() {
+  const [crossTrack, setCrossTrack] = useState(0.8);
+  const [headingError, setHeadingError] = useState(5);
+  const [speed, setSpeed] = useState(5);
+  const gain = 1.2;
+  const wheelbase = 2.5;
+  const headingRad = (headingError * Math.PI) / 180;
+  const stanley = headingRad + Math.atan2(gain * crossTrack, speed + 1e-6);
+  const delta = Math.max(-Math.PI / 6, Math.min(Math.PI / 6, stanley));
+  const yawRate = (speed / wheelbase) * Math.tan(delta);
+  const path = Array.from({ length: 70 }, (_, index) => {
+    const x = (index / 69) * 6;
+    return { x, y: 0.28 * Math.sin(x * 1.4) };
+  });
+  const robot = { x: 2.6, y: 0.28 * Math.sin(2.6 * 1.4) + crossTrack };
+  const screen = path.map((point) => ({ x: 35 + point.x * 62, y: 150 - point.y * 72 }));
+  const sRobot = { x: 35 + robot.x * 62, y: 150 - robot.y * 72 };
+  const headingEnd = {
+    x: sRobot.x + Math.cos(headingRad) * 60,
+    y: sRobot.y - Math.sin(headingRad) * 60,
+  };
+  const steerEnd = {
+    x: sRobot.x + Math.cos(headingRad + delta) * 48,
+    y: sRobot.y - Math.sin(headingRad + delta) * 48,
+  };
+
+  return (
+    <VisualFrame
+      icon={<Route size={18} aria-hidden />}
+      metrics={[
+        ["delta", `${((delta * 180) / Math.PI).toFixed(1)}°`],
+        ["yaw rate", `${yawRate.toFixed(2)} rad/s`],
+        ["saturation", Math.abs(stanley) > Math.PI / 6 ? "active" : "clear"],
+      ]}
+      title="Bicycle / Stanley Controller"
+    >
+      <div className="visual-layout">
+        <div className="control-stack">
+          <Slider label="cross-track" max={2} min={-2} onChange={setCrossTrack} step={0.05} suffix=" m" value={crossTrack} />
+          <Slider label="heading error" max={30} min={-30} onChange={setHeadingError} step={1} suffix="°" value={headingError} />
+          <Slider label="speed" max={15} min={0.5} onChange={setSpeed} step={0.1} suffix=" m/s" value={speed} />
+        </div>
+        <svg className="plot" role="img" viewBox="0 0 430 280">
+          <polyline className="path-line" points={polyline(screen)} />
+          <line className="lookahead-line" x1={sRobot.x} x2={headingEnd.x} y1={sRobot.y} y2={headingEnd.y} />
+          <line className="velocity-arrow" x1={sRobot.x} x2={steerEnd.x} y1={sRobot.y} y2={steerEnd.y} />
+          <line className="cross-track-line" x1={sRobot.x} x2={sRobot.x} y1={sRobot.y} y2={150 - 0.28 * Math.sin(2.6 * 1.4) * 72} />
+          <circle className="point result" cx={sRobot.x} cy={sRobot.y} r="8" />
+          <text x={sRobot.x + 10} y={sRobot.y - 10}>vehicle</text>
         </svg>
       </div>
     </VisualFrame>
@@ -1097,6 +1273,76 @@ function EmptyVisualizer({ section }: { section?: LessonSection }) {
   );
 }
 
+function VisualizationSpecInteractiveCard({ spec }: { spec: VisualizationSpec }) {
+  const [values, setValues] = useState<Record<string, number>>(() =>
+    Object.fromEntries(spec.parameters.map((parameter) => [parameter.name, parameter.default])),
+  );
+  const metrics = useMemo(() => {
+    const normalized = spec.parameters.map((parameter) => {
+      const span = Math.max(1e-9, parameter.max - parameter.min);
+      const value = values[parameter.name] ?? parameter.default;
+      const defaultRatio = (parameter.default - parameter.min) / span;
+      const valueRatio = (value - parameter.min) / span;
+      return Math.min(1, Math.abs(valueRatio - defaultRatio) * 2);
+    });
+    const stress = normalized.reduce((sum, value) => sum + value, 0) / Math.max(1, normalized.length);
+    const margin = values.safety_margin ?? 0.5;
+    return {
+      stress,
+      margin,
+      status: stress <= margin ? "정상" : "실패 경계",
+    };
+  }, [spec.parameters, values]);
+
+  return (
+    <div className="cheat-card visualization-spec-card">
+      <span>개념 태그 · {spec.conceptTag}</span>
+      <strong>{spec.title}</strong>
+      <code>{spec.connectedEquation}</code>
+      <small>연결 코드랩: {spec.connectedCodeLab}</small>
+      <div className="spec-interactive-grid">
+        <div className="control-stack spec-control-stack">
+          {spec.parameters.map((parameter) => (
+            <Slider
+              key={`${spec.id}-${parameter.name}`}
+              label={parameter.name}
+              max={parameter.max}
+              min={parameter.min}
+              onChange={(value) => setValues((current) => ({ ...current, [parameter.name]: value }))}
+              step={Math.max((parameter.max - parameter.min) / 100, 0.001)}
+              value={values[parameter.name] ?? parameter.default}
+            />
+          ))}
+        </div>
+        <svg className="plot spec-plot" role="img" viewBox="0 0 360 180">
+          <line className="axis" x1="40" x2="330" y1="140" y2="140" />
+          <line className="axis" x1="40" x2="40" y1="24" y2="150" />
+          <rect className="bar-primary" height={metrics.stress * 96} width="70" x="86" y={140 - metrics.stress * 96} />
+          <rect className={metrics.status === "정상" ? "bar-secondary" : "bar-alert"} height={metrics.margin * 96} width="70" x="204" y={140 - metrics.margin * 96} />
+          <line className="threshold-line" x1="54" x2="318" y1={140 - metrics.margin * 96} y2={140 - metrics.margin * 96} />
+          <text x="82" y="162">stress</text>
+          <text x="202" y="162">margin</text>
+        </svg>
+      </div>
+      <div className={metrics.status === "정상" ? "spec-status" : "spec-status is-alert"}>
+        <strong>{metrics.status}</strong>
+        <small>stress {metrics.stress.toFixed(2)} · margin {metrics.margin.toFixed(2)}</small>
+      </div>
+      <div className="parameter-table compact-table">
+        {spec.parameters.map((parameter) => (
+          <div className="parameter-row" key={`${spec.id}-${parameter.name}`}>
+            <span>{parameter.name}</span>
+            <span>{parameter.symbol}={values[parameter.name]?.toFixed(3) ?? parameter.default}</span>
+            <span>{parameter.description}</span>
+          </div>
+        ))}
+      </div>
+      <small>정상: {spec.normalCase}</small>
+      <small>실패: {spec.failureCase}</small>
+    </div>
+  );
+}
+
 function VisualizationSpecCards({ section }: { section: LessonSection }) {
   const specs = section.v2Session?.visualizations ?? [];
   if (specs.length === 0) return null;
@@ -1104,28 +1350,10 @@ function VisualizationSpecCards({ section }: { section: LessonSection }) {
     <section className="panel visual-panel">
       <div className="panel-heading">
         <Workflow size={18} aria-hidden />
-        <h2>VisualizationSpec</h2>
+        <h2>시각화 연결 정보</h2>
       </div>
       <div className="cheat-grid">
-        {specs.map((spec) => (
-          <div className="cheat-card" key={spec.id}>
-            <span>{spec.conceptTag}</span>
-            <strong>{spec.title}</strong>
-            <code>{spec.connectedEquation}</code>
-            <small>codeLab: {spec.connectedCodeLab}</small>
-            <div className="parameter-table compact-table">
-              {spec.parameters.map((parameter) => (
-                <div className="parameter-row" key={`${spec.id}-${parameter.name}`}>
-                  <span>{parameter.name}</span>
-                  <span>{parameter.symbol}={parameter.default}</span>
-                  <span>{parameter.description}</span>
-                </div>
-              ))}
-            </div>
-            <small>정상: {spec.normalCase}</small>
-            <small>실패: {spec.failureCase}</small>
-          </div>
-        ))}
+        {specs.map((spec) => <VisualizationSpecInteractiveCard key={spec.id} spec={spec} />)}
       </div>
     </section>
   );
@@ -1361,6 +1589,8 @@ export function VisualizerHub({ id, section }: VisualizerHubProps) {
     "linear-algebra": <LinearAlgebraVisualizer />,
     kalman: <KalmanVisualizer />,
     manipulator: <ManipulatorVisualizer />,
+    "matrix-grid": <MatrixGridVisualizer />,
+    "jacobian-singularity": <ManipulatorVisualizer />,
     "mobile-odom": (
       <div className="visual-stack">
         <MobileOdomVisualizer />
@@ -1369,6 +1599,7 @@ export function VisualizerHub({ id, section }: VisualizerHubProps) {
     ),
     astar: <AStarVisualizer />,
     "pure-pursuit": <PurePursuitVisualizer />,
+    "bicycle-stanley": <BicycleStanleyVisualizer />,
     "ai-metrics": <AiMetricsVisualizer />,
     latency: <LatencyVisualizer />,
     sweep: <SweepVisualizer />,
@@ -1402,6 +1633,7 @@ export function VisualizerHub({ id, section }: VisualizerHubProps) {
     "backprop-chain": <BackpropChainVisualizer />,
     "svd-jacobian": <SVDJacobianVisualizer />,
     "foundation-model": <FoundationModelVisualizer />,
+    "prompt-eval-harness": <RetrievalFlowVisualizer />,
   };
   const visualizer = visualizers[id];
   if (section?.v2Session) {

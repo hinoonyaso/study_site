@@ -69,6 +69,19 @@ ROS 2 Humble + Ubuntu 22.04 기준의 Physical AI 학습 PDF를 바탕으로 만
 - 모든 세션에 공식자료 읽기 순서, 세션 source id, 검색 가능한 자료 카드, 다중 C++/Python 코드 예제 추가
 - JS 실행 실습을 homogeneous transform, SVD/DLS, 2D EKF, occupancy log-odds, Stanley, PID, LQR, MPC, camera projection, convolution, ONNX shape, tf latency, rosbag metric까지 확장
 
+## v8 Physical AI 검증 보고서 반영
+
+- 보고서의 TOP 위험 공백을 독립 v2 세션으로 추가: Newton-Euler, feedforward gravity compensation, Laplace/z-domain/Bode, PPO/SAC, CBF-QP, UKF, Nav2 BT/Action, TensorRT/ONNX, VLM→VLA, C++ 1kHz jitter
+- 각 보강 세션에 이론, 유도, 손계산, Python/C++ 코드랩, 실패 상황 시각화 스펙, 안전/통합/반례형 퀴즈를 연결
+- `validate-content.mjs`가 critical-gap 세션 존재, 고급 퀴즈 유형, C++/Python 실습, 시각화 카탈로그 커버리지를 강제
+
+## v9 B+ → A- 약점 폐쇄
+
+- 남은 공백을 독립 v2 세션으로 추가: DAgger, Contact dynamics/Friction cone, iLQR trajectory optimization, Dreamer/RSSM world model, Null-space redundancy resolution
+- `criticalGapSessions.ts`의 7종 기본 퀴즈 답변을 세션별 전용 답변으로 교체해 템플릿 암기형 약점을 제거
+- 시각화 카탈로그를 48개, 각 3개 파라미터와 3개 해석 질문으로 확장하고 v2 시각화 스펙 카드에 실제 슬라이더 기반 인터랙션 추가
+- `validate-content.mjs`가 남은 약점 세션, 세션별 quiz specificity, multi-parameter visualization, interactive spec renderer를 자동 검증
+
 ## 실행
 
 ```bash

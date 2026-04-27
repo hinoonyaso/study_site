@@ -37,7 +37,11 @@ export type VisualizerId =
   | "depth-map"
   | "backprop-chain"
   | "svd-jacobian"
-  | "foundation-model";
+  | "foundation-model"
+  | "matrix-grid"
+  | "jacobian-singularity"
+  | "bicycle-stanley"
+  | "prompt-eval-harness";
 
 export type TheoryGraphId =
   | "rotation-basis"

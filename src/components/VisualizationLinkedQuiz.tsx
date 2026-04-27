@@ -23,7 +23,7 @@ export function VisualizationLinkedQuiz({
           );
           return (
             <div className="cheat-card" key={visualization.id}>
-              <span>{visualization.conceptTag}</span>
+              <span>개념 태그 · {visualization.conceptTag}</span>
               <strong>{visualization.title}</strong>
               <code>{visualization.connectedEquation}</code>
               <small>

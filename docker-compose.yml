@@ -1,0 +1,20 @@
+services:
+  labs:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    command: bash
+    tty: true
+    stdin_open: true
+    environment:
+      PYTHONPATH: /workspace
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        apt-get update >/dev/null
+        apt-get install -y --no-install-recommends build-essential g++ >/dev/null
+        pip install --no-cache-dir -r requirements.txt >/dev/null
+        exec "$$@"
+      - bash

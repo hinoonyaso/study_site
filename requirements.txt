@@ -1,0 +1,7 @@
+numpy>=1.26
+scipy>=1.11
+pytest>=8.0
+osqp>=0.6
+
+# Optional heavy labs such as RSSM/CLIP examples may require PyTorch.
+# Install the correct wheel for your CUDA/CPU environment from pytorch.org when needed.

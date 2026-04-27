@@ -47,6 +47,25 @@ const v2QuestionTypeLabel: Record<QuizQuestionV2["type"], string> = {
   counterexample: "반례 찾기",
 };
 
+const v2DifficultyLabel: Record<QuizQuestionV2["difficulty"], "기초" | "계산" | "전문"> = {
+  easy: "기초",
+  medium: "계산",
+  hard: "전문",
+};
+
+const v2ErrorTypeLabel: Record<QuizQuestionV2["wrongAnswerAnalysis"]["errorType"], string> = {
+  concept_confusion: "개념 혼동",
+  formula_misunderstanding: "수식 해석 오류",
+  calculation_error: "계산 오류",
+  code_logic_error: "코드 로직 오류",
+  visualization_misread: "시각화 해석 오류",
+  robot_application_error: "로봇 적용 오류",
+  system_design_error: "시스템 설계 오류",
+  unit_error: "단위 오류",
+  numerical_stability_error: "수치 안정성 오류",
+  safety_misjudgment: "안전 판단 오류",
+};
+
 const gradeV2Question = (question: QuizQuestionV2, answer: string) => {
   const normalized = normalizeExpression(answer);
   if (question.choices?.length) return answer.trim() === question.expectedAnswer.trim() ? v2QuestionPoints(question) : 0;
@@ -187,13 +206,13 @@ function QuizPanelV2({
       <div className="quiz-header">
         <div className="panel-heading">
           <Award size={18} aria-hidden />
-          <h2>시험 · v2 conceptTag</h2>
+          <h2>시험</h2>
         </div>
         <div className="score-pill">최고 {bestScore}점</div>
       </div>
       {retryFilter && (
         <div className="hint-box">
-          Adaptive retry queue · {retryFilter.conceptTag} · {activeQuestions.length}/{questions.length}문항
+          맞춤 재시험 · {retryFilter.conceptTag} · {activeQuestions.length}/{questions.length}문항
           {retryFilter.reviews.length > 0 && <small>추천 복습: {retryFilter.reviews.join(" / ")}</small>}
           <button className="text-button" onClick={() => setRetryFilter(null)} type="button">
             전체 문제로 돌아가기
@@ -212,8 +231,8 @@ function QuizPanelV2({
                 <span>{index + 1}</span>
                 <div>
                   <div className="question-meta">
-                    <small>{v2QuestionTypeLabel[question.type]}</small>
-                    <small>{question.conceptTag}</small>
+                    <DifficultyBadge difficulty={v2DifficultyLabel[question.difficulty]} />
+                    <small className="question-type-tag">{v2QuestionTypeLabel[question.type]}</small>
                     <small>{maxPoints}점</small>
                   </div>
                   <strong><MathText text={question.question} /></strong>
@@ -265,7 +284,7 @@ function QuizPanelV2({
                   )}
                   {!isCorrect && (
                     <small>
-                      {question.wrongAnswerAnalysis.errorType} · 복습: {question.wrongAnswerAnalysis.reviewSession}
+                      오답 유형: {v2ErrorTypeLabel[question.wrongAnswerAnalysis.errorType]} · 복습: {question.wrongAnswerAnalysis.reviewSession}
                     </small>
                   )}
                 </div>

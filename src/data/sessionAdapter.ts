@@ -25,6 +25,25 @@ const graphIdsByPart = (session: Session): TheoryGraphId[] => {
 };
 
 const visualizerIdBySession = (session: Session): VisualizerId => {
+  if (session.id.includes("vector_matrix_inverse_cross_product_basics")) return "matrix-grid";
+  if (session.id.includes("fk_matrix_ik_singularity_visual_lab")) return "jacobian-singularity";
+  if (session.id.includes("bicycle_model_stanley_controller")) return "bicycle-stanley";
+  if (session.id.includes("dataset_label_split_confusion_matrix_practice")) return "ai-metrics";
+  if (session.id.includes("ros2_cli_command_diagnostics_lab")) return "ros2-loop";
+  if (session.id.includes("prompt_context_eval_harness_engineering")) return "prompt-eval-harness";
+  if (session.id.includes("null_space")) return "svd-jacobian";
+  if (session.id.includes("contact_dynamics") || session.id.includes("friction_cone")) return "dynamics-torque";
+  if (session.id.includes("ilqr")) return "trajectory-profile";
+  if (session.id.includes("dagger")) return "physical-ai-flow";
+  if (session.id.includes("dreamer_rssm")) return "world-model";
+  if (session.id.includes("laplace_z")) return "pid-step-response";
+  if (session.id.includes("ppo_sac")) return "rl-reward";
+  if (session.id.includes("ukf")) return "ekf-covariance";
+  if (session.id.includes("tensorrt")) return "latency";
+  if (session.id.includes("realtime_control_loop")) return "latency";
+  if (session.id.includes("cbf")) return "lyapunov-energy";
+  if (session.id.includes("vlm")) return "vla-architecture";
+  if (session.id.includes("nav2_behavior_tree")) return "ros2-loop";
   if (session.id.includes("mle_sensor")) return "kalman";
   if (session.id.includes("lie_algebra")) return "so3-rotation";
   if (session.id.includes("cpp_eigen_ik")) return "robot-arm-3d";
@@ -84,6 +103,25 @@ const visualizerIdBySession = (session: Session): VisualizerId => {
 };
 
 const executableLabBySession = (session: Session): ExecutableLabId => {
+  if (session.id.includes("vector_matrix_inverse_cross_product_basics")) return "homogeneous-transform";
+  if (session.id.includes("fk_matrix_ik_singularity_visual_lab")) return "two-link-fk";
+  if (session.id.includes("bicycle_model_stanley_controller")) return "stanley-controller";
+  if (session.id.includes("dataset_label_split_confusion_matrix_practice")) return "ai-metrics";
+  if (session.id.includes("ros2_cli_command_diagnostics_lab")) return "ros2-sub-pub-loop";
+  if (session.id.includes("prompt_context_eval_harness_engineering")) return "vla-action-token";
+  if (session.id.includes("null_space")) return "svd-jacobian-condition";
+  if (session.id.includes("contact_dynamics") || session.id.includes("friction_cone")) return "ros2-control-pid";
+  if (session.id.includes("ilqr")) return "trajectory-quintic";
+  if (session.id.includes("dagger")) return "ai-metrics";
+  if (session.id.includes("dreamer_rssm")) return "world-model-rollout";
+  if (session.id.includes("laplace_z")) return "pid-response";
+  if (session.id.includes("ppo_sac")) return "q-learning-gridworld";
+  if (session.id.includes("ukf")) return "ekf-2d";
+  if (session.id.includes("tensorrt")) return "latency-stats";
+  if (session.id.includes("realtime_control_loop")) return "latency-stats";
+  if (session.id.includes("cbf")) return "mpc-1d";
+  if (session.id.includes("vlm")) return "vla-action-token";
+  if (session.id.includes("nav2_behavior_tree")) return "ros2-sub-pub-loop";
   if (session.id.includes("mle_sensor")) return "kalman-1d";
   if (session.id.includes("lie_algebra")) return "homogeneous-transform";
   if (session.id.includes("cpp_eigen_ik")) return "two-link-fk";

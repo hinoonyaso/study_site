@@ -45,6 +45,11 @@ const sections = allSections.filter((section) => !section.v2Session);
 const v2Sections = allSections.filter((section) => section.v2Session);
 const v2Sessions = curriculumModule.v2Sessions;
 const v2VisualizationCatalog = curriculumModule.v2VisualizationCatalog;
+const finalImprovementRoadmap = curriculumModule.finalImprovementRoadmap;
+const contentQualityRemediationChecklist = curriculumModule.contentQualityRemediationChecklist;
+const mathFoundationAuditChecklist = curriculumModule.mathFoundationAuditChecklist;
+const physicalAICoreAuditChecklist = curriculumModule.physicalAICoreAuditChecklist;
+const structuralQualityRemediationChecklist = curriculumModule.structuralQualityRemediationChecklist;
 const sourceCatalog = loadTsModule("src/data/sourceCatalog.ts").sourceCatalog;
 const failed = [];
 
@@ -53,8 +58,13 @@ const assert = (name, ok, detail = "") => {
   if (!ok) failed.push(name);
 };
 
-assert("module count", curriculum.length >= 13, `${curriculum.length} modules`);
-assert("micro session count", sections.length >= 100, `${sections.length} sessions`);
+assert("part-centered module count", curriculum.length >= 10, `${curriculum.length} modules`);
+assert(
+  "legacy numeric modules are merged into parts",
+  curriculum.every((module) => !/^\d+\./.test(module.title)),
+  curriculum.filter((module) => /^\d+\./.test(module.title)).map((module) => module.title).join(", "),
+);
+assert("merged legacy micro session count", sections.length >= 75, `${sections.length} sessions`);
 assert("source catalog count", sourceCatalog.length >= 150, `${sourceCatalog.length} sources`);
 const duplicateUrls = sourceCatalog
   .map((source) => source.url)
@@ -82,6 +92,405 @@ assert("knowledge map component", fs.existsSync("src/components/KnowledgeMap.tsx
 assert("source catalog panel", fs.existsSync("src/components/SourceCatalogPanel.tsx"));
 assert("v2 session count", v2Sessions.length >= 12, `${v2Sessions.length} v2 sessions`);
 assert("v2 sections are first-class", v2Sections.length >= 12, `${v2Sections.length} adapted sections`);
+const criticalGapSessionIds = [
+  "laplace_z_bode_pid_design",
+  "robot_dynamics_newton_euler_recursive",
+  "robot_dynamics_feedforward_gravity_compensation",
+  "ukf_sigma_point_localization",
+  "nav2_behavior_tree_action_server",
+  "tensorrt_onnx_quantization_pipeline",
+  "cpp_realtime_control_loop_jitter",
+  "cbf_qp_safety_filter",
+  "rl_ppo_sac_reward_shaping",
+  "vlm_architecture_to_vla_bridge",
+];
+const v2SessionIds = new Set(v2Sessions.map((session) => session.id));
+const missingCriticalGaps = criticalGapSessionIds.filter((id) => !v2SessionIds.has(id));
+assert("physical-ai report critical gap sessions present", missingCriticalGaps.length === 0, missingCriticalGaps.join(", "));
+const criticalGapSessions = v2Sessions.filter((session) => criticalGapSessionIds.includes(session.id));
+const criticalGapQuizTypes = new Set(criticalGapSessions.flatMap((session) => session.quizzes.map((question) => question.type)));
+const requiredCriticalQuizTypes = ["derivation", "counterexample", "safety_analysis", "integration_pipeline"];
+const missingCriticalQuizTypes = requiredCriticalQuizTypes.filter((type) => !criticalGapQuizTypes.has(type));
+assert("critical gap sessions include advanced quiz types", missingCriticalQuizTypes.length === 0, missingCriticalQuizTypes.join(", "));
+const criticalGapLabs = criticalGapSessions.flatMap((session) => session.codeLabs.map((lab) => `${lab.language}:${lab.id}`));
+assert(
+  "critical gap sessions include C++ and Python labs",
+  criticalGapLabs.some((lab) => lab.startsWith("cpp:")) && criticalGapLabs.some((lab) => lab.startsWith("python:")),
+  criticalGapLabs.join(", "),
+);
+const criticalGapVisualizations = new Set(v2VisualizationCatalog.map((visualization) => visualization.conceptTag));
+const missingCriticalVisualSpecs = criticalGapSessionIds.filter((id) => !criticalGapVisualizations.has(id));
+assert("critical gap visualization catalog coverage", missingCriticalVisualSpecs.length === 0, missingCriticalVisualSpecs.join(", "));
+const genericCriticalQuizAnswers = criticalGapSessions.flatMap((session) =>
+  session.quizzes
+    .filter((question) => question.id.includes("q01_concept") || question.id.includes("q02_calculation"))
+    .map((question) => question.expectedAnswer),
+);
+const duplicateCriticalQuizAnswers = genericCriticalQuizAnswers.filter((answer, index, all) => all.indexOf(answer) !== index);
+assert(
+  "critical gap core quizzes are session-specific",
+  duplicateCriticalQuizAnswers.length === 0 &&
+    !genericCriticalQuizAnswers.some((answer) =>
+      answer.includes("계산값이 맞아도 pole 위치, torque limit, confidence threshold, deadline") ||
+      answer.includes("수식과 코드만이 아니라 실제 로봇의 시간 예산"),
+    ),
+  duplicateCriticalQuizAnswers.slice(0, 2).join(" / "),
+);
+const remainingGapSessionIds = [
+  "null_space_redundancy_resolution",
+  "contact_dynamics_friction_cone_grasp",
+  "ilqr_trajectory_optimization_receding_horizon",
+  "dagger_dataset_aggregation_imitation_learning",
+  "dreamer_rssm_world_model_implementation",
+];
+const missingRemainingGaps = remainingGapSessionIds.filter((id) => !v2SessionIds.has(id));
+assert("remaining weakness closure sessions present", missingRemainingGaps.length === 0, missingRemainingGaps.join(", "));
+const remainingGapSessions = v2Sessions.filter((session) => remainingGapSessionIds.includes(session.id));
+const missingRemainingVisualSpecs = remainingGapSessionIds.filter((id) => !criticalGapVisualizations.has(id));
+assert("remaining weakness visualization catalog coverage", missingRemainingVisualSpecs.length === 0, missingRemainingVisualSpecs.join(", "));
+const remainingLabs = remainingGapSessions.flatMap((session) => session.codeLabs.map((lab) => `${session.id}:${lab.id}`));
+const missingRemainingLabs = remainingGapSessions.filter((session) => session.codeLabs.length === 0);
+assert("remaining weakness sessions have executable labs", missingRemainingLabs.length === 0, remainingLabs.join(", "));
+const depthGapSessionIds = [
+  "antiwindup_derivative_kick_pid",
+  "impedance_control_contact_depth",
+];
+const missingDepthGaps = depthGapSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "depth gap sessions present (antiwindup + impedance)",
+  missingDepthGaps.length === 0,
+  missingDepthGaps.join(", "),
+);
+const depthGapVisuals = depthGapSessionIds.filter((id) => !criticalGapVisualizations.has(id));
+assert(
+  "depth gap sessions have visualization catalog entries",
+  depthGapVisuals.length === 0,
+  depthGapVisuals.join(", "),
+);
+const finalImprovementSessionIds = [
+  "dh_craig_spong_convention_guard",
+  "ik_solution_selection_joint_limit_continuity",
+  "rank_nullity_pseudoinverse_ik",
+  "kkt_osqp_active_constraints",
+  "se3_lie_algebra_expmap_twist",
+  "geometric_vs_analytic_jacobian",
+  "spatial_rnea_6dof_backward_pass",
+  "feedforward_model_error_robustness",
+  "controllability_gramian_numeric",
+  "lqr_bryson_rule_pole_design",
+  "back_calculation_antiwindup_control",
+  "admittance_vs_impedance_control",
+  "preempt_rt_kernel_jitter_comparison",
+  "clip_contrastive_temperature_loss",
+  "llava_cross_attention_vla_grounding",
+  "ppo_gae_sac_entropy_tuning",
+  "rssm_elbo_kl_world_model",
+  "pi0_openvla_diffusion_token_policy",
+  "ekf_chi_squared_outlier_rejection",
+  "fisher_information_observability",
+  "ukf_alpha_beta_kappa_tuning",
+  "particle_filter_resampling_comparison",
+  "imu_camera_tight_coupling_factor",
+  "orca_velocity_obstacle_avoidance",
+  "isam2_incremental_factor_graph",
+  "domain_randomization_adr_gap_design",
+  "mpc_soft_constraint_infeasibility",
+  "clf_cbf_qp_priority_resolution",
+  "laplace_final_value_bode_margin",
+  "butterworth_filter_order_design",
+  "chebyshev_butterworth_filter_design",
+  "jerk_continuous_quintic_trajectory",
+  "tensorrt_real_onnx_inference_calibration",
+  "vlm_vla_lora_finetuning_dataset",
+  "system_parameter_selection_report",
+];
+const missingFinalImprovements = finalImprovementSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "final sufficient coverage sessions present",
+  missingFinalImprovements.length === 0,
+  missingFinalImprovements.join(", "),
+);
+const missingFinalVisualSpecs = finalImprovementSessionIds.filter((id) => !criticalGapVisualizations.has(id));
+assert(
+  "final sufficient visualization catalog coverage",
+  missingFinalVisualSpecs.length === 0,
+  missingFinalVisualSpecs.join(", "),
+);
+const structuralImprovementSessionIds = [
+  "vector_matrix_inverse_cross_product_basics",
+  "fk_matrix_ik_singularity_visual_lab",
+  "bicycle_model_stanley_controller",
+  "dataset_label_split_confusion_matrix_practice",
+  "ros2_cli_command_diagnostics_lab",
+  "prompt_context_eval_harness_engineering",
+];
+const missingStructuralImprovements = structuralImprovementSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "structural audit improvement sessions present",
+  missingStructuralImprovements.length === 0,
+  missingStructuralImprovements.join(", "),
+);
+const missingStructuralVisualSpecs = structuralImprovementSessionIds.filter((id) => !criticalGapVisualizations.has(id));
+assert(
+  "structural audit visualization catalog coverage",
+  missingStructuralVisualSpecs.length === 0,
+  missingStructuralVisualSpecs.join(", "),
+);
+assert(
+  "prompt/context/eval harness has its own curriculum part",
+  curriculum.some((module) => module.id === "v2-part-11-prompt-context-harness" && module.sections.length > 0),
+);
+assert(
+  "six-stage reinforcement roadmap is exported",
+  Array.isArray(finalImprovementRoadmap) && finalImprovementRoadmap.length === 6,
+  `${finalImprovementRoadmap?.length ?? 0} stages`,
+);
+const roadmapSessionIds = (finalImprovementRoadmap ?? []).flatMap((stage) => stage.sessionIds ?? []);
+const missingRoadmapSessions = roadmapSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "six-stage roadmap sessions exist in v2 curriculum",
+  missingRoadmapSessions.length === 0,
+  missingRoadmapSessions.join(", "),
+);
+const roadmapVisualizationIds = (finalImprovementRoadmap ?? []).flatMap((stage) => stage.visualizationIds ?? []);
+const catalogVisualizationIds = new Set(v2VisualizationCatalog.map((visualization) => visualization.id));
+const missingRoadmapVisualizations = roadmapVisualizationIds.filter((id) => !catalogVisualizationIds.has(id));
+assert(
+  "six-stage roadmap visualizations exist in catalog",
+  missingRoadmapVisualizations.length === 0,
+  missingRoadmapVisualizations.join(", "),
+);
+const roadmapText = JSON.stringify(finalImprovementRoadmap ?? []);
+const finalImprovementSource = fs.readFileSync("src/data/finalImprovementSessions.ts", "utf8");
+assert(
+  "six-stage roadmap includes requested concrete labs",
+  roadmapText.includes("scipy.stats.chi2.ppf") &&
+    roadmapText.includes("scipy.signal.bode") &&
+    roadmapText.includes("scipy.signal.butter") &&
+    roadmapText.includes("scipy.signal.cheb1ord") &&
+    roadmapText.includes("osqp.OSQP") &&
+    roadmapText.includes("Rodrigues formula") &&
+    roadmapText.includes("rank-deficient null-space IK") &&
+    roadmapText.includes("3-link spatial RNEA") &&
+    roadmapText.includes("PyTorch RSSM"),
+);
+assert(
+  "math foundation audit checklist covers 6 foundation fields",
+  Array.isArray(mathFoundationAuditChecklist) && mathFoundationAuditChecklist.length === 6,
+  `${mathFoundationAuditChecklist?.length ?? 0} fields`,
+);
+const mathAuditSessionIds = (mathFoundationAuditChecklist ?? []).flatMap((item) => item.evidenceSessionIds ?? []);
+const missingMathAuditSessions = mathAuditSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "math foundation audit checklist sessions exist",
+  missingMathAuditSessions.length === 0,
+  missingMathAuditSessions.join(", "),
+);
+const mathAuditVisualizationIds = (mathFoundationAuditChecklist ?? []).flatMap((item) => item.evidenceVisualizationIds ?? []);
+const missingMathAuditVisualizations = mathAuditVisualizationIds.filter((id) => !catalogVisualizationIds.has(id));
+assert(
+  "math foundation audit checklist visualizations exist",
+  missingMathAuditVisualizations.length === 0,
+  missingMathAuditVisualizations.join(", "),
+);
+const weakMathAuditScores = (mathFoundationAuditChecklist ?? []).filter(
+  (item) => item.depthScore < 10 || item.practiceScore < 10,
+);
+assert(
+  "math foundation audit scores are fully sufficient",
+  weakMathAuditScores.length === 0,
+  weakMathAuditScores.map((item) => `${item.field}:${item.depthScore}/${item.practiceScore}`).join(", "),
+);
+assert(
+  "math foundation gaps include concrete implementations",
+  finalImprovementSource.includes("rank-nullity theorem") &&
+    finalImprovementSource.includes("scipy.signal.bode") &&
+    finalImprovementSource.includes("initial value") &&
+    finalImprovementSource.includes("scipy.stats.chi2.ppf") &&
+    finalImprovementSource.includes("Fisher Information Matrix") &&
+    finalImprovementSource.includes("KKT complementarity") &&
+    finalImprovementSource.includes("osqp.OSQP") &&
+    finalImprovementSource.includes("Rodrigues formula") &&
+    finalImprovementSource.includes("cheb1ord"),
+);
+assert(
+  "physical-ai core audit checklist covers all critical weaknesses",
+  Array.isArray(physicalAICoreAuditChecklist) && physicalAICoreAuditChecklist.length === 24,
+  `${physicalAICoreAuditChecklist?.length ?? 0} items`,
+);
+const unresolvedPhysicalCoreGaps = (physicalAICoreAuditChecklist ?? []).filter((item) => item.status !== "resolved");
+assert(
+  "physical-ai core audit has no unresolved gaps",
+  unresolvedPhysicalCoreGaps.length === 0,
+  unresolvedPhysicalCoreGaps.map((item) => item.previousGap).join(", "),
+);
+const physicalCoreSessionIds = (physicalAICoreAuditChecklist ?? []).flatMap((item) => item.evidenceSessionIds ?? []);
+const missingPhysicalCoreSessions = physicalCoreSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "physical-ai core audit sessions exist",
+  missingPhysicalCoreSessions.length === 0,
+  missingPhysicalCoreSessions.join(", "),
+);
+const physicalCoreVisualizationIds = (physicalAICoreAuditChecklist ?? []).flatMap((item) => item.evidenceVisualizationIds ?? []);
+const missingPhysicalCoreVisualizations = physicalCoreVisualizationIds.filter((id) => !catalogVisualizationIds.has(id));
+assert(
+  "physical-ai core audit visualizations exist",
+  missingPhysicalCoreVisualizations.length === 0,
+  missingPhysicalCoreVisualizations.join(", "),
+);
+assert(
+  "physical-ai core gaps include concrete implementations",
+  finalImprovementSource.includes("Craig/Spong") &&
+    finalImprovementSource.includes("elbow flip") &&
+    finalImprovementSource.includes("Feedforward Gravity Model Error Robustness") &&
+    finalImprovementSource.includes("Controllability Gramian") &&
+    finalImprovementSource.includes("PREEMPT_RT") &&
+    finalImprovementSource.includes("systematic_resample") &&
+    finalImprovementSource.includes("IMU-Camera Tight Coupling") &&
+    finalImprovementSource.includes("GAE lambda"),
+);
+assert(
+  "content quality remediation checklist covers 8 known weak spots",
+  Array.isArray(contentQualityRemediationChecklist) && contentQualityRemediationChecklist.length === 8,
+  `${contentQualityRemediationChecklist?.length ?? 0} items`,
+);
+const checklistSessionIds = (contentQualityRemediationChecklist ?? []).flatMap((item) => item.evidenceSessionIds ?? []);
+const missingChecklistSessions = checklistSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "content quality remediation checklist sessions exist",
+  missingChecklistSessions.length === 0,
+  missingChecklistSessions.join(", "),
+);
+const checklistVisualizationIds = (contentQualityRemediationChecklist ?? []).flatMap((item) => item.evidenceVisualizationIds ?? []);
+const missingChecklistVisualizations = checklistVisualizationIds.filter((id) => !catalogVisualizationIds.has(id));
+assert(
+  "content quality remediation checklist visualizations exist",
+  missingChecklistVisualizations.length === 0,
+  missingChecklistVisualizations.join(", "),
+);
+assert(
+  "structural quality remediation checklist covers UX/code/mobile gaps",
+  Array.isArray(structuralQualityRemediationChecklist) && structuralQualityRemediationChecklist.length >= 6,
+  `${structuralQualityRemediationChecklist?.length ?? 0} items`,
+);
+const unresolvedStructuralGaps = (structuralQualityRemediationChecklist ?? []).filter(
+  (item) => !["resolved", "mitigated"].includes(item.status),
+);
+assert(
+  "structural quality remediation has no untracked gaps",
+  unresolvedStructuralGaps.length === 0,
+  unresolvedStructuralGaps.map((item) => item.issue).join(", "),
+);
+const structuralChecklistSessionIds = (structuralQualityRemediationChecklist ?? []).flatMap((item) => item.evidenceSessionIds ?? []);
+const missingStructuralChecklistSessions = structuralChecklistSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "structural quality remediation sessions exist",
+  missingStructuralChecklistSessions.length === 0,
+  missingStructuralChecklistSessions.join(", "),
+);
+const structuralChecklistVisualizationIds = (structuralQualityRemediationChecklist ?? []).flatMap((item) => item.evidenceVisualizationIds ?? []);
+const missingStructuralChecklistVisualizations = structuralChecklistVisualizationIds.filter((id) => !catalogVisualizationIds.has(id));
+assert(
+  "structural quality remediation visualizations exist",
+  missingStructuralChecklistVisualizations.length === 0,
+  missingStructuralChecklistVisualizations.join(", "),
+);
+const laplaceBodeVisual = v2VisualizationCatalog.find((visualization) => visualization.id === "vis_laplace_z_bode_pid");
+assert(
+  "Bode PID visualization has meaningful third parameter",
+  laplaceBodeVisual?.parameters.some((parameter) => parameter.name === "phase_margin_target"),
+  laplaceBodeVisual?.parameters.map((parameter) => parameter.name).join(", "),
+);
+const criticalGapSource = fs.readFileSync("src/data/criticalGapSessions.ts", "utf8");
+assert(
+  "TensorRT contract lab clearly marked as CPU mock with GPU deployment guide",
+  criticalGapSource.includes("CPU mock") &&
+    criticalGapSource.includes("실제 Jetson/NVIDIA GPU 배포") &&
+    criticalGapSource.includes("trtexec/polygraphy"),
+);
+const shallowFinalQuizPools = v2Sessions.filter(
+  (session) => finalImprovementSessionIds.includes(session.id) && session.quizzes.length < 13,
+);
+assert(
+  "final sufficient sessions have expanded adaptive retry pools",
+  shallowFinalQuizPools.length === 0,
+  shallowFinalQuizPools.map((session) => `${session.id}:${session.quizzes.length}`).join(", "),
+);
+const deadlineQuestionSessions = v2Sessions.filter((session) =>
+  session.quizzes.some((question) => question.id.includes("q13_deadline") && question.expectedAnswer.includes("deadline")),
+);
+const finalSessionsMissingDeadlineQuestions = v2Sessions.filter(
+  (session) =>
+    finalImprovementSessionIds.includes(session.id) &&
+    !session.quizzes.some((question) => question.id.includes("q13_deadline") && question.expectedAnswer.includes("deadline")),
+);
+assert(
+  "v2 sessions include explicit deadline safety questions",
+  deadlineQuestionSessions.length >= 100 && finalSessionsMissingDeadlineQuestions.length === 0,
+  finalSessionsMissingDeadlineQuestions.map((session) => session.id).slice(0, 4).join(", ") ||
+    `${deadlineQuestionSessions.length} sessions`,
+);
+const adaptiveRetrySource = fs.readFileSync("src/components/AdaptiveRetryPanel.tsx", "utf8");
+assert(
+  "adaptive retry groups weak areas by concept and error type",
+  adaptiveRetrySource.includes("weakErrorTypes") && adaptiveRetrySource.includes("errorTypeLabel"),
+);
+const appSource = fs.readFileSync("src/App.tsx", "utf8");
+const codeLabBlockSource = fs.readFileSync("src/components/CodeLabBlock.tsx", "utf8");
+const visualizerHubSource = fs.readFileSync("src/components/visualizers/VisualizerHub.tsx", "utf8");
+const stylesSource = fs.readFileSync("src/styles.css", "utf8");
+assert(
+  "first-visit onboarding and goal presets are implemented",
+  appSource.includes("physical-ai-onboarding-seen-v1") &&
+    appSource.includes("onboarding-card") &&
+    appSource.includes("jumpToFirstMatch"),
+);
+assert(
+  "visible previous/next session navigation is implemented",
+  appSource.includes("session-nav") &&
+    appSource.includes("goPrevSection") &&
+    appSource.includes("goNextSection") &&
+    stylesSource.includes(".session-nav"),
+);
+assert(
+  "code labs provide copy button and local execution guide",
+  codeLabBlockSource.includes("navigator.clipboard.writeText") &&
+    codeLabBlockSource.includes("local-run-guide") &&
+    fs.existsSync("requirements.txt") &&
+    fs.existsSync("docker-compose.yml"),
+);
+assert(
+  "mobile bottom tabs and right-panel access are implemented",
+  stylesSource.includes("@media (max-width: 560px)") &&
+    stylesSource.includes("position: fixed") &&
+    stylesSource.includes("bottom: 0") &&
+    stylesSource.includes(".right-column"),
+);
+assert(
+  "FK matrix, IK convergence, and manipulability visualization are rendered",
+  visualizerHubSource.includes("matrix-step-grid") &&
+    visualizerHubSource.includes("ik-trace-summary") &&
+    visualizerHubSource.includes("manip-ellipse") &&
+    visualizerHubSource.includes("BicycleStanleyVisualizer"),
+);
+const genericCatalogSliders = v2VisualizationCatalog.flatMap((visualization) =>
+  visualization.parameters
+    .filter((parameter) => ["disturbance_or_noise", "safety_margin"].includes(parameter.name))
+    .map((parameter) => `${visualization.id}:${parameter.name}`),
+);
+assert(
+  "v2 visualization catalog avoids generic auto sliders",
+  genericCatalogSliders.length === 0,
+  genericCatalogSliders.slice(0, 4).join(", "),
+);
+const weakCatalogSpecs = v2VisualizationCatalog.filter(
+  (visualization) => visualization.parameters.length < 3 || visualization.interpretationQuestions.length < 3,
+);
+assert(
+  "v2 visualization catalog uses multi-parameter specs",
+  weakCatalogSpecs.length === 0,
+  weakCatalogSpecs.map((visualization) => visualization.id).slice(0, 4).join(", "),
+);
 [
   "src/data/mathFoundationSessions.ts",
   "src/data/robotMathSessions.ts",
@@ -93,6 +502,9 @@ assert("v2 sections are first-class", v2Sections.length >= 12, `${v2Sections.len
   "src/data/safetySystemSessions.ts",
   "src/data/integrationProjectSessions.ts",
   "src/data/finalExamQuestions.ts",
+  "src/data/remainingGapSessions.ts",
+  "src/data/finalImprovementSessions.ts",
+  "src/data/structuralImprovementSessions.ts",
 ].forEach((file) => assert(`v2 data file exists: ${file}`, fs.existsSync(file)));
 
 const coreQuizTypes = [
@@ -263,6 +675,10 @@ const practicePanel = fs.readFileSync("src/components/PracticePanel.tsx", "utf8"
 assert("MathText used in theory and quiz", theoryPanel.includes("MathText") && quizPanel.includes("MathText"));
 assert("wrong-answer recording wired", quizPanel.includes("onRecordWrongAnswers") && fs.readFileSync("src/App.tsx", "utf8").includes("recordWrongAnswers"));
 assert("visual empty state shows mini graphs", visualizerHub.includes("EmptyVisualizer") && visualizerHub.includes("MiniGraph"));
+assert(
+  "v2 visualization specs render interactive sliders",
+  visualizerHub.includes("VisualizationSpecInteractiveCard") && visualizerHub.includes("spec.parameters.map") && visualizerHub.includes("Slider"),
+);
 assert("search includes source catalog", searchBar.includes("sourceCatalog"));
 assert("sidebar has stage filter", sidebar.includes("stageFilter"));
 assert("practice panel renders code examples", practicePanel.includes("practice-example-picker") && practicePanel.includes("examples"));

@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ChevronDown, PanelsTopLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Bot,
+  CheckCircle2,
+  ChevronDown,
+  Compass,
+  Cpu,
+  PanelsTopLeft,
+  Route,
+  X,
+} from "lucide-react";
 import { FlashcardPanel } from "./components/FlashcardPanel";
 import { NotesEditor } from "./components/NotesEditor";
 import { PomodoroTimer } from "./components/PomodoroTimer";
@@ -20,12 +32,14 @@ import { useLocalStorage } from "./hooks/useLocalStorage";
 import { emptyProgress, type ProgressState, type SrsCard, type WrongAnswerEntry } from "./types";
 
 const storageKey = "physical-ai-study-progress-v1";
+const onboardingKey = "physical-ai-onboarding-seen-v1";
 
 function App() {
   const [progress, setProgress] = useLocalStorage<ProgressState>(storageKey, emptyProgress);
   const [selectedModuleId, setSelectedModuleId] = useState(curriculum[0].id);
   const [selectedSectionId, setSelectedSectionId] = useState(curriculum[0].sections[0].id);
   const [activeTab, setActiveTab] = useState<ActiveTab>("theory");
+  const [showOnboarding, setShowOnboarding] = useState(() => window.localStorage.getItem(onboardingKey) !== "1");
   const visitRef = useRef({ sectionId: curriculum[0].sections[0].id, startedAt: Date.now() });
   const { theme, toggle: toggleTheme } = useTheme();
 
@@ -39,6 +53,12 @@ function App() {
   );
 
   const allSections = useMemo(() => curriculum.flatMap((m) => m.sections), []);
+  const currentSectionIndex = useMemo(
+    () => allSections.findIndex((section) => section.id === currentSection.id),
+    [allSections, currentSection.id],
+  );
+  const previousSection = currentSectionIndex > 0 ? allSections[currentSectionIndex - 1] : undefined;
+  const nextSection = currentSectionIndex >= 0 && currentSectionIndex < allSections.length - 1 ? allSections[currentSectionIndex + 1] : undefined;
 
   const selectModule = (moduleId: string) => {
     const nextModule = curriculum.find((module) => module.id === moduleId) ?? curriculum[0];
@@ -186,6 +206,27 @@ function App() {
     }
   };
 
+  const dismissOnboarding = useCallback(() => {
+    window.localStorage.setItem(onboardingKey, "1");
+    setShowOnboarding(false);
+  }, []);
+
+  const jumpToFirstMatch = useCallback(
+    (predicate: (sectionId: string, title: string, moduleTitle: string) => boolean) => {
+      for (const module of curriculum) {
+        const section = module.sections.find((candidate) => predicate(candidate.id, candidate.title, module.title));
+        if (section) {
+          setSelectedModuleId(module.id);
+          setSelectedSectionId(section.id);
+          setActiveTab("theory");
+          break;
+        }
+      }
+      dismissOnboarding();
+    },
+    [dismissOnboarding],
+  );
+
   // Keyboard shortcuts
   const goNextSection = useCallback(() => {
     const idx = allSections.findIndex((s) => s.id === selectedSectionId);
@@ -223,6 +264,68 @@ function App() {
 
   return (
     <div className="app-shell">
+      {showOnboarding && (
+        <div className="onboarding-backdrop" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+          <div className="onboarding-modal">
+            <button className="onboarding-close" onClick={dismissOnboarding} type="button" aria-label="온보딩 닫기">
+              <X size={18} aria-hidden />
+            </button>
+            <div className="onboarding-heading">
+              <Compass size={24} aria-hidden />
+              <div>
+                <span className="eyebrow">처음 시작하기</span>
+                <h2 id="onboarding-title">목표를 고르면 첫 세션으로 바로 이동합니다</h2>
+                <p>
+                  이 사이트는 이론, 코드 실습, 시험, 시각화를 같은 세션 안에서 묶습니다. 진행률은 브라우저에 저장되며,
+                  우측 패널에서 JSON으로 내보내 백업할 수 있습니다.
+                </p>
+              </div>
+            </div>
+            <div className="onboarding-options">
+              <button className="onboarding-card" onClick={dismissOnboarding} type="button">
+                <BookOpen size={20} aria-hidden />
+                <strong>전체 커리큘럼</strong>
+                <span>Part 1부터 차근차근 시작</span>
+              </button>
+              <button
+                className="onboarding-card"
+                onClick={() =>
+                  jumpToFirstMatch((id, title) =>
+                    id.includes("fk_matrix_ik_singularity") || id.includes("dh_craig") || title.includes("Jacobian"),
+                  )
+                }
+                type="button"
+              >
+                <Bot size={20} aria-hidden />
+                <strong>로봇팔 제어</strong>
+                <span>FK/IK/Jacobian 직관부터 시작</span>
+              </button>
+              <button
+                className="onboarding-card"
+                onClick={() => jumpToFirstMatch((id) => id.includes("bicycle_model_stanley") || id.includes("ekf_chi_squared"))}
+                type="button"
+              >
+                <Route size={20} aria-hidden />
+                <strong>자율주행</strong>
+                <span>Bicycle/Stanley/EKF 진단으로 이동</span>
+              </button>
+              <button
+                className="onboarding-card"
+                onClick={() =>
+                  jumpToFirstMatch((id, title, moduleTitle) =>
+                    id.includes("dataset_label_split") || moduleTitle.includes("인식 AI") || title.includes("데이터셋"),
+                  )
+                }
+                type="button"
+              >
+                <Cpu size={20} aria-hidden />
+                <strong>AI·배포</strong>
+                <span>데이터셋 품질과 confusion matrix부터 시작</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Sidebar
         modules={curriculum}
         onSelectModule={selectModule}
@@ -319,6 +422,27 @@ function App() {
           )}
           {activeTab === "visual" && <VisualizerHub id={currentSection.visualizerId} section={currentSection} />}
         </div>
+
+        <nav className="session-nav" aria-label="세션 이동">
+          <button className="text-button" disabled={!previousSection} onClick={goPrevSection} type="button">
+            <ArrowLeft size={16} aria-hidden />
+            <span>
+              이전
+              <small>{previousSection?.title ?? "첫 세션"}</small>
+            </span>
+          </button>
+          <div className="session-nav-progress">
+            <strong>{currentSectionIndex + 1}</strong>
+            <span>/ {allSections.length}</span>
+          </div>
+          <button className="text-button" disabled={!nextSection} onClick={goNextSection} type="button">
+            <span>
+              다음
+              <small>{nextSection?.title ?? "마지막 세션"}</small>
+            </span>
+            <ArrowRight size={16} aria-hidden />
+          </button>
+        </nav>
       </main>
 
       <aside className="right-column">

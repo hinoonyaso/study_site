@@ -6,6 +6,8 @@ import ts from "typescript";
 const source = fs.readFileSync("src/data/curriculumV2.ts", "utf8");
 const legacySource = fs.readFileSync("src/data/curriculum.ts", "utf8");
 const types = fs.readFileSync("src/types.ts", "utf8");
+const packageJson = fs.readFileSync("package.json", "utf8");
+const readmeSource = fs.readFileSync("readme.md", "utf8");
 const moduleCache = new Map();
 
 const loadTsModule = (filePath) => {
@@ -90,6 +92,21 @@ assert("executable lab component", fs.existsSync("src/components/ExecutableLab.t
 assert("KaTeX renderer", fs.existsSync("src/components/KatexRenderer.tsx"));
 assert("knowledge map component", fs.existsSync("src/components/KnowledgeMap.tsx"));
 assert("source catalog panel", fs.existsSync("src/components/SourceCatalogPanel.tsx"));
+assert(
+  "always-on study site service scripts exist",
+  fs.existsSync("scripts/serve-static.mjs") &&
+    fs.existsSync("scripts/install-study-site-service.sh") &&
+    fs.existsSync("scripts/share-study-site.mjs") &&
+    packageJson.includes("install:service") &&
+    packageJson.includes("serve:study") &&
+    packageJson.includes("share:study"),
+);
+assert(
+  "README documents LAN and internet access",
+  readmeSource.includes("http://localhost:4173/study_site/") &&
+    readmeSource.includes("같은 Wi-Fi") &&
+    readmeSource.includes("https://hinoonyaso.github.io/study_site/"),
+);
 assert("v2 session count", v2Sessions.length >= 12, `${v2Sessions.length} v2 sessions`);
 assert("v2 sections are first-class", v2Sections.length >= 12, `${v2Sections.length} adapted sections`);
 const criticalGapSessionIds = [

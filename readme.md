@@ -93,6 +93,34 @@ npm run dev -- --port 5173
 이미 해당 포트가 사용 중이면 Vite가 `5174`, `5175`처럼 다음 포트를 안내합니다.
 현재 개발 서버 확인 URL은 `http://localhost:5178/`입니다.
 
+## 매번 서버 켜지 않고 접속하기
+
+정적 빌드를 만든 뒤 user systemd 서비스로 등록하면 로그인 후 또는 재부팅 후에도 사이트가 계속 떠 있습니다.
+
+```bash
+npm run install:service
+```
+
+기본 주소:
+
+- 이 컴퓨터: `http://localhost:4173/study_site/`
+- 같은 Wi-Fi의 노트북/모바일: `npm run share:study`가 출력하는 `http://<이 컴퓨터 IP>:4173/study_site/`
+- 외부 인터넷: GitHub Pages를 켜면 `https://hinoonyaso.github.io/study_site/`
+
+서비스 관리:
+
+```bash
+systemctl --user status physical-ai-study-site.service
+systemctl --user restart physical-ai-study-site.service
+systemctl --user stop physical-ai-study-site.service
+```
+
+임시 외부 공유가 필요하면 Cloudflare Tunnel 설치 후 아래처럼 실행합니다.
+
+```bash
+npm run share:study -- --tunnel
+```
+
 ## 빌드 확인
 
 ```bash

@@ -8,6 +8,9 @@
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "serve:study": "node scripts/serve-static.mjs --host 0.0.0.0 --port 4173 --base /study_site/",
+    "install:service": "bash scripts/install-study-site-service.sh",
+    "share:study": "node scripts/share-study-site.mjs",
     "test:ui": "playwright test",
     "validate:content": "node scripts/validate-content.mjs"
   },

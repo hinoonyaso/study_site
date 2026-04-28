@@ -253,6 +253,26 @@ assert(
   missingStructuralVisualSpecs.length === 0,
   missingStructuralVisualSpecs.join(", "),
 );
+const foundationGapSessionIds = [
+  "matrix_multiplication_grid_basics",
+  "pseudoinverse_rank_deficient_basics",
+  "partial_derivative_gradient_tangent_plane",
+  "gradient_descent_loss_landscape",
+  "gaussian_bayes_update_distribution",
+  "finite_difference_ode_solver_basics",
+];
+const missingFoundationGaps = foundationGapSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "foundation math gap sessions present",
+  missingFoundationGaps.length === 0,
+  missingFoundationGaps.join(", "),
+);
+const missingFoundationVisualSpecs = foundationGapSessionIds.filter((id) => !criticalGapVisualizations.has(id));
+assert(
+  "foundation math gap visualization catalog coverage",
+  missingFoundationVisualSpecs.length === 0,
+  missingFoundationVisualSpecs.join(", "),
+);
 assert(
   "prompt/context/eval harness has its own curriculum part",
   curriculum.some((module) => module.id === "v2-part-11-prompt-context-harness" && module.sections.length > 0),
@@ -455,12 +475,31 @@ assert(
 const appSource = fs.readFileSync("src/App.tsx", "utf8");
 const codeLabBlockSource = fs.readFileSync("src/components/CodeLabBlock.tsx", "utf8");
 const visualizerHubSource = fs.readFileSync("src/components/visualizers/VisualizerHub.tsx", "utf8");
+const sidebarSource = fs.readFileSync("src/components/Sidebar.tsx", "utf8");
 const stylesSource = fs.readFileSync("src/styles.css", "utf8");
 assert(
   "first-visit onboarding and goal presets are implemented",
   appSource.includes("physical-ai-onboarding-seen-v1") &&
     appSource.includes("onboarding-card") &&
     appSource.includes("jumpToFirstMatch"),
+);
+assert(
+  "main learning roadmap and visible goal presets are implemented",
+  appSource.includes("study-roadmap") &&
+    appSource.includes("goal-presets") &&
+    appSource.includes("roadmap-step") &&
+    appSource.includes("mobile-progress-summary") &&
+    stylesSource.includes(".study-roadmap") &&
+    stylesSource.includes(".goal-presets") &&
+    stylesSource.includes(".roadmap-step"),
+);
+assert(
+  "sidebar stage filters are promoted as goal panel",
+  sidebarSource.includes("stage-filter-panel") &&
+    sidebarSource.includes("stageFilterCounts") &&
+    sidebarSource.includes("학습 목적") &&
+    stylesSource.includes(".stage-filter-panel") &&
+    stylesSource.includes(".stage-filter-heading"),
 );
 assert(
   "visible previous/next session navigation is implemented",
@@ -489,6 +528,21 @@ assert(
     visualizerHubSource.includes("ik-trace-summary") &&
     visualizerHubSource.includes("manip-ellipse") &&
     visualizerHubSource.includes("BicycleStanleyVisualizer"),
+);
+assert(
+  "robot arm visualizer shows 3-link FK chain and IK failure diagnostics",
+  visualizerHubSource.includes("T23") &&
+    visualizerHubSource.includes("T03") &&
+    visualizerHubSource.includes("analytic elbow-up seed") &&
+    visualizerHubSource.includes("workspace 밖 target") &&
+    visualizerHubSource.includes("det(JJᵀ)"),
+);
+assert(
+  "foundation math custom visualizers are rendered",
+  visualizerHubSource.includes("CrossProduct3DVisualizer") &&
+    visualizerHubSource.includes("LossLandscapeVisualizer") &&
+    visualizerHubSource.includes("GaussianBayesVisualizer") &&
+    visualizerHubSource.includes("OdeFiniteDiffVisualizer"),
 );
 const genericCatalogSliders = v2VisualizationCatalog.flatMap((visualization) =>
   visualization.parameters

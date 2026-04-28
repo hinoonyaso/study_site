@@ -188,7 +188,7 @@ export function PracticePanel({ section, savedCode, onSaveCode }: PracticePanelP
           {section.v2Session.codeLabs.map((lab) => (
             <CodeLabBlock key={lab.id} lab={lab} />
           ))}
-          <ExecutableLab section={section} />
+          {section.cppPractice.executableJsStarter && <ExecutableLab section={section} />}
         </div>
       </section>
     );
@@ -213,7 +213,7 @@ export function PracticePanel({ section, savedCode, onSaveCode }: PracticePanelP
         </button>
       </div>
       <PracticeBlockView block={block} code={code} language={language} onChange={(nextCode) => onSaveCode(language, nextCode)} onExport={() => exportRos2Workspace(section.id, language, code)} />
-      <ExecutableLab section={section} />
+      {section.cppPractice.executableJsStarter && <ExecutableLab section={section} />}
     </section>
   );
 }

@@ -15,6 +15,24 @@ const secondaryParameterFor = (title: string, conceptTag: string, parameterName:
   if (conceptTag === "vector_matrix_inverse_cross_product_basics") {
     return parameter("shear_xy", "k", -1.5, 1.5, 0.4, `${title}에서 행렬 shear가 격자와 inverse 안정성에 주는 영향을 조절한다.`);
   }
+  if (conceptTag === "matrix_multiplication_grid_basics") {
+    return parameter("shear_xy", "k", -1.5, 1.5, 0.4, `${title}에서 A 행렬의 shear가 B basis를 다시 변환하는 과정을 조절한다.`);
+  }
+  if (conceptTag === "pseudoinverse_rank_deficient_basics") {
+    return parameter("rcond", "\\epsilon", 0.0001, 0.2, 0.02, `${title}에서 작은 singular value를 버리는 threshold를 조절한다.`);
+  }
+  if (conceptTag === "partial_derivative_gradient_tangent_plane") {
+    return parameter("y_position", "y", -3, 3, 1, `${title}에서 y축 편미분과 접평면 기울기를 조절한다.`);
+  }
+  if (conceptTag === "gradient_descent_loss_landscape") {
+    return parameter("initial_x", "x_0", -3, 3, -1, `${title}에서 gradient descent 시작 x 위치를 조절한다.`);
+  }
+  if (conceptTag === "gaussian_bayes_update_distribution") {
+    return parameter("measurement_sigma", "\\sigma_z", 0.2, 5, 1, `${title}에서 measurement likelihood 폭을 조절한다.`);
+  }
+  if (conceptTag === "finite_difference_ode_solver_basics") {
+    return parameter("difference_h", "h", 0.000001, 0.1, 0.001, `${title}에서 finite difference step을 조절한다.`);
+  }
   if (conceptTag === "fk_matrix_ik_singularity_visual_lab") {
     return parameter("q1", "q_1", -180, 180, 35, `${title}에서 첫 번째 관절각과 FK 누적 transform을 조절한다.`);
   }
@@ -106,6 +124,24 @@ const secondaryParameterFor = (title: string, conceptTag: string, parameterName:
 const tertiaryParameterFor = (title: string, conceptTag: string, parameterName: string): VisualizationParameter => {
   if (conceptTag === "vector_matrix_inverse_cross_product_basics") {
     return parameter("force_angle", "\\theta_F", -180, 180, 90, `${title}에서 외적 torque 방향을 만드는 힘 벡터 각도를 조절한다.`);
+  }
+  if (conceptTag === "matrix_multiplication_grid_basics") {
+    return parameter("basis_rotation", "\\theta_B", -90, 90, 25, `${title}에서 먼저 적용되는 B basis 회전을 조절한다.`);
+  }
+  if (conceptTag === "pseudoinverse_rank_deficient_basics") {
+    return parameter("null_vector_gain", "z", -3, 3, 0, `${title}에서 같은 Ax를 유지하는 null-space 이동을 조절한다.`);
+  }
+  if (conceptTag === "partial_derivative_gradient_tangent_plane") {
+    return parameter("step_size", "h", 0.001, 0.5, 0.05, `${title}에서 finite-difference gradient 근사 간격을 조절한다.`);
+  }
+  if (conceptTag === "gradient_descent_loss_landscape") {
+    return parameter("initial_y", "y_0", -3, 3, 1, `${title}에서 gradient descent 시작 y 위치를 조절한다.`);
+  }
+  if (conceptTag === "gaussian_bayes_update_distribution") {
+    return parameter("measurement_z", "z", -5, 5, 3, `${title}에서 새 센서 측정값 위치를 조절한다.`);
+  }
+  if (conceptTag === "finite_difference_ode_solver_basics") {
+    return parameter("decay_rate", "\\lambda", 0.1, 5, 1, `${title}에서 ODE decay rate와 Euler 안정성을 조절한다.`);
   }
   if (conceptTag === "fk_matrix_ik_singularity_visual_lab") {
     return parameter("ik_damping", "\\lambda", 0.01, 0.3, 0.08, `${title}에서 DLS IK damping과 singularity 근처 step 크기를 조절한다.`);
@@ -337,4 +373,10 @@ export const v2VisualizationCatalog: VisualizationSpec[] = [
   spec("vis_dataset_split_confusion_matrix", "Dataset Split Leakage and Confusion Matrix", "dataset_label_split_confusion_matrix_practice", "P=TP/(TP+FP), R=TP/(TP+FN)", "lab_dataset_label_split_confusion_matrix_practice", "label_noise_rate", "eta", "scene leakage가 0이고 safety class recall이 목표 이상이다.", "scene overlap과 label noise가 validation score를 가짜로 높인다."),
   spec("vis_ros2_cli_graph_diagnostics", "ROS2 CLI Graph Diagnostics Flow", "ros2_cli_command_diagnostics_lab", "graph -> topic hz -> param -> action", "lab_ros2_cli_command_diagnostics_lab", "topic_rate_hz", "f", "graph endpoint, topic rate, param namespace, action feedback/result가 일관된다.", "QoS mismatch나 cancel 처리 누락으로 goal이 hanging 상태에 남는다."),
   spec("vis_prompt_eval_harness_golden_output", "Prompt Context and Eval Harness Flow", "prompt_context_eval_harness_engineering", "p_pass=mean(schema_ok && rubric_ok)", "lab_prompt_context_eval_harness_engineering", "retrieval_top_k", "k", "schema 통과, grounding 통과, golden output pass rate가 release threshold 이상이다.", "top-k 과다나 느슨한 schema로 unsafe action이 통과한다."),
+  spec("vis_matrix_multiplication_grid_steps", "Matrix Multiplication Step-by-step Grid", "matrix_multiplication_grid_basics", "C=AB", "lab_matrix_multiplication_grid_basics", "scale_x", "s_x", "B basis를 먼저 움직이고 A가 다시 변환한 결과가 AB와 일치한다.", "A와 B 순서를 바꾸면 frame composition 결과가 달라진다."),
+  spec("vis_pseudoinverse_rank_deficient_plane", "Pseudoinverse Minimum-norm Solution", "pseudoinverse_rank_deficient_basics", "x=A^+b", "lab_pseudoinverse_rank_deficient_basics", "sigma_min", "\\sigma_{min}", "작은 singular value를 cutoff하고 minimum-norm 해와 null-space family를 구분한다.", "작은 singular value를 무조건 뒤집으면 노이즈와 joint update가 폭증한다."),
+  spec("vis_partial_gradient_tangent_plane", "Partial Derivative Tangent Plane", "partial_derivative_gradient_tangent_plane", "f(x+dx)=f(x)+grad^T dx", "lab_gradient_tangent_loss_landscape", "x_position", "x", "gradient 화살표와 접평면이 작은 주변 변화의 방향을 잘 예측한다.", "h가 너무 크면 비선형 곡률 때문에 편미분 근사가 틀어진다."),
+  spec("vis_gradient_descent_loss_landscape_path", "Gradient Descent Loss Landscape", "gradient_descent_loss_landscape", "theta=theta-alpha grad J", "lab_gradient_tangent_loss_landscape", "learning_rate", "\\alpha", "적절한 learning rate에서 contour 중심으로 loss가 단조 감소한다.", "learning rate가 너무 크면 valley를 건너뛰며 oscillation 또는 발산이 생긴다."),
+  spec("vis_gaussian_bayes_update_curves", "Gaussian Prior Likelihood Posterior", "gaussian_bayes_update_distribution", "posterior ∝ prior * likelihood", "lab_gaussian_bayes_update_distribution", "prior_sigma", "\\sigma_0", "posterior가 prior와 measurement 사이에서 더 좁아진다.", "variance 대신 sigma나 precision을 혼동하면 noisy measurement를 과하게 믿는다."),
+  spec("vis_finite_difference_ode_error", "Finite Difference and Euler ODE Error", "finite_difference_ode_solver_basics", "x_{k+1}=x_k+dt f(x_k)", "lab_finite_difference_ode_solver_basics", "dt", "\\Delta t", "dt와 h가 적절하면 derivative와 trajectory가 analytic solution에 가깝다.", "dt가 크면 Euler trajectory가 true solution과 크게 벌어진다."),
 ];

@@ -150,24 +150,31 @@ function LinearAlgebraVisualizer() {
 function MatrixGridVisualizer() {
   const [scaleX, setScaleX] = useState(1.4);
   const [shear, setShear] = useState(0.4);
-  const [forceAngle, setForceAngle] = useState(90);
+  const [basisRotation, setBasisRotation] = useState(25);
   const width = 430;
   const height = 300;
   const scale = 54;
   const origin = worldToSvg({ x: 0, y: 0 }, width, height, scale);
-  const transform = (point: Point) => ({
+  const bTheta = (basisRotation * Math.PI) / 180;
+  const firstTransform = (point: Point) => ({
+    x: Math.cos(bTheta) * point.x - Math.sin(bTheta) * point.y,
+    y: Math.sin(bTheta) * point.x + Math.cos(bTheta) * point.y,
+  });
+  const secondTransform = (point: Point) => ({
     x: scaleX * point.x + shear * point.y,
     y: point.y,
   });
-  const det = scaleX;
-  const forceRad = (forceAngle * Math.PI) / 180;
+  const composedTransform = (point: Point) => secondTransform(firstTransform(point));
+  const detA = scaleX;
+  const detAB = detA;
+  const forceRad = bTheta;
   const r = { x: 0.8, y: 0 };
   const force = { x: Math.cos(forceRad), y: Math.sin(forceRad) };
   const torqueZ = r.x * force.y - r.y * force.x;
   const gridLines = Array.from({ length: 9 }, (_, index) => index - 4);
-  const line = (a: Point, b: Point) => {
-    const ta = worldToSvg(transform(a), width, height, scale);
-    const tb = worldToSvg(transform(b), width, height, scale);
+  const line = (fn: (point: Point) => Point, a: Point, b: Point) => {
+    const ta = worldToSvg(fn(a), width, height, scale);
+    const tb = worldToSvg(fn(b), width, height, scale);
     return { ta, tb };
   };
   const forceEnd = worldToSvg({ x: r.x + force.x * 0.9, y: r.y + force.y * 0.9 }, width, height, scale);
@@ -177,28 +184,33 @@ function MatrixGridVisualizer() {
     <VisualFrame
       icon={<Grid3X3 size={18} aria-hidden />}
       metrics={[
-        ["det(A)", det.toFixed(2)],
+        ["det(A)", detA.toFixed(2)],
+        ["det(AB)", detAB.toFixed(2)],
         ["tau_z", torqueZ.toFixed(2)],
-        ["inverse", Math.abs(det) < 0.08 ? "unstable" : "ok"],
+        ["inverse", Math.abs(detAB) < 0.08 ? "unstable" : "ok"],
       ]}
-      title="Matrix Grid / Cross Product"
+      title="Matrix Multiplication Grid / Cross Product"
     >
       <div className="visual-layout">
         <div className="control-stack">
           <Slider label="scale x" max={3} min={0.1} onChange={setScaleX} step={0.05} value={scaleX} />
           <Slider label="shear xy" max={1.5} min={-1.5} onChange={setShear} step={0.05} value={shear} />
-          <Slider label="force angle" max={180} min={-180} onChange={setForceAngle} step={1} suffix="°" value={forceAngle} />
+          <Slider label="B basis / F angle" max={90} min={-90} onChange={setBasisRotation} step={1} suffix="°" value={basisRotation} />
         </div>
         <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
           <line className="axis" x1="20" x2={width - 20} y1={origin.y} y2={origin.y} />
           <line className="axis" x1={origin.x} x2={origin.x} y1="20" y2={height - 20} />
           {gridLines.map((value) => {
-            const vertical = line({ x: value, y: -3.5 }, { x: value, y: 3.5 });
-            const horizontal = line({ x: -3.5, y: value }, { x: 3.5, y: value });
+            const firstVertical = line(firstTransform, { x: value, y: -3.5 }, { x: value, y: 3.5 });
+            const firstHorizontal = line(firstTransform, { x: -3.5, y: value }, { x: 3.5, y: value });
+            const finalVertical = line(composedTransform, { x: value, y: -3.5 }, { x: value, y: 3.5 });
+            const finalHorizontal = line(composedTransform, { x: -3.5, y: value }, { x: 3.5, y: value });
             return (
               <g key={value}>
-                <line className="grid-line-soft" x1={vertical.ta.x} x2={vertical.tb.x} y1={vertical.ta.y} y2={vertical.tb.y} />
-                <line className="grid-line-soft" x1={horizontal.ta.x} x2={horizontal.tb.x} y1={horizontal.ta.y} y2={horizontal.tb.y} />
+                <line className="grid-line-soft" strokeDasharray="4 4" x1={firstVertical.ta.x} x2={firstVertical.tb.x} y1={firstVertical.ta.y} y2={firstVertical.tb.y} />
+                <line className="grid-line-soft" strokeDasharray="4 4" x1={firstHorizontal.ta.x} x2={firstHorizontal.tb.x} y1={firstHorizontal.ta.y} y2={firstHorizontal.tb.y} />
+                <line className="grid-line-soft" x1={finalVertical.ta.x} x2={finalVertical.tb.x} y1={finalVertical.ta.y} y2={finalVertical.tb.y} />
+                <line className="grid-line-soft" x1={finalHorizontal.ta.x} x2={finalHorizontal.tb.x} y1={finalHorizontal.ta.y} y2={finalHorizontal.tb.y} />
               </g>
             );
           })}
@@ -206,7 +218,257 @@ function MatrixGridVisualizer() {
           <line className="vector result" x1={lever.x} x2={forceEnd.x} y1={lever.y} y2={forceEnd.y} />
           <circle className="joint" cx={origin.x} cy={origin.y} r="5" />
           <circle className="point result" cx={lever.x} cy={lever.y} r="5" />
+          <text x="24" y="32">dashed: B grid</text>
+          <text x="24" y="52">solid: A(B grid)</text>
           <text x={forceEnd.x + 8} y={forceEnd.y - 8}>F</text>
+        </svg>
+      </div>
+    </VisualFrame>
+  );
+}
+
+type Point3 = { x: number; y: number; z: number };
+
+function project3D(point: Point3, width: number, height: number, scale: number): Point {
+  return {
+    x: width / 2 + (point.x - point.y) * scale * 0.72,
+    y: height / 2 - point.z * scale - (point.x + point.y) * scale * 0.28,
+  };
+}
+
+function CrossProduct3DVisualizer() {
+  const [forceAngle, setForceAngle] = useState(90);
+  const [force, setForce] = useState(6);
+  const [outOfPlane, setOutOfPlane] = useState(0.25);
+  const width = 430;
+  const height = 300;
+  const scale = 90;
+  const rad = (forceAngle * Math.PI) / 180;
+  const r: Point3 = { x: 1.1, y: 0, z: 0 };
+  const f: Point3 = {
+    x: Math.cos(rad) * force,
+    y: Math.sin(rad) * force,
+    z: outOfPlane * force,
+  };
+  const tau: Point3 = {
+    x: r.y * f.z - r.z * f.y,
+    y: r.z * f.x - r.x * f.z,
+    z: r.x * f.y - r.y * f.x,
+  };
+  const tauMag = Math.hypot(tau.x, tau.y, tau.z);
+  const fScale = 0.11;
+  const tauScale = tauMag > 0 ? 0.85 / tauMag : 0;
+  const origin = project3D({ x: 0, y: 0, z: 0 }, width, height, scale);
+  const rEnd = project3D(r, width, height, scale);
+  const fEnd = project3D({ x: r.x + f.x * fScale, y: r.y + f.y * fScale, z: r.z + f.z * fScale }, width, height, scale);
+  const tauEnd = project3D({ x: tau.x * tauScale, y: tau.y * tauScale, z: tau.z * tauScale }, width, height, scale);
+
+  return (
+    <VisualFrame
+      icon={<Crosshair size={18} aria-hidden />}
+      metrics={[
+        ["|tau|", tauMag.toFixed(2)],
+        ["tau_z", tau.z.toFixed(2)],
+        ["right hand", tauMag < 0.05 ? "parallel" : tau.z >= 0 ? "+z" : "-z"],
+      ]}
+      title="3D Cross Product Torque"
+    >
+      <div className="visual-layout">
+        <div className="control-stack">
+          <Slider label="force angle" max={180} min={0} onChange={setForceAngle} step={1} suffix="°" value={forceAngle} />
+          <Slider label="force" max={20} min={0} onChange={setForce} step={0.2} suffix=" N" value={force} />
+          <Slider label="out of plane" max={1} min={-1} onChange={setOutOfPlane} step={0.05} value={outOfPlane} />
+        </div>
+        <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
+          <line className="axis" x1="35" x2={width - 35} y1={height / 2 + 42} y2={height / 2 - 42} />
+          <line className="axis" x1={width / 2} x2={width / 2} y1="30" y2={height - 35} />
+          <line className="vector original" x1={origin.x} x2={rEnd.x} y1={origin.y} y2={rEnd.y} />
+          <line className="vector result" x1={rEnd.x} x2={fEnd.x} y1={rEnd.y} y2={fEnd.y} />
+          <line className="vector accent" x1={origin.x} x2={tauEnd.x} y1={origin.y} y2={tauEnd.y} />
+          <circle className="joint" cx={origin.x} cy={origin.y} r="5" />
+          <circle className="point original" cx={rEnd.x} cy={rEnd.y} r="5" />
+          <text x={rEnd.x + 8} y={rEnd.y + 4}>r</text>
+          <text x={fEnd.x + 8} y={fEnd.y - 8}>F</text>
+          <text x={tauEnd.x + 8} y={tauEnd.y - 8}>tau=r x F</text>
+        </svg>
+      </div>
+    </VisualFrame>
+  );
+}
+
+function LossLandscapeVisualizer() {
+  const [alpha, setAlpha] = useState(0.2);
+  const [initialX, setInitialX] = useState(-1);
+  const [initialY, setInitialY] = useState(1);
+  const width = 430;
+  const height = 300;
+  const scale = 55;
+  const center = { x: 1, y: -0.5 };
+  const loss = (x: number, y: number) => (x - 1) ** 2 + 0.5 * (y + 0.5) ** 2;
+  const grad = (x: number, y: number) => ({ x: 2 * (x - 1), y: y + 0.5 });
+  const path = [{ x: initialX, y: initialY }];
+  for (let i = 0; i < 18; i += 1) {
+    const last = path[path.length - 1];
+    const g = grad(last.x, last.y);
+    const next = {
+      x: Math.max(-3.5, Math.min(3.5, last.x - alpha * g.x)),
+      y: Math.max(-3.5, Math.min(3.5, last.y - alpha * g.y)),
+    };
+    path.push(next);
+  }
+  const final = path[path.length - 1];
+  const finalGrad = grad(final.x, final.y);
+  const contourLevels = [0.25, 0.75, 1.5, 3, 5.5, 8];
+  const contour = (level: number) =>
+    Array.from({ length: 80 }, (_, index) => {
+      const t = (index / 79) * Math.PI * 2;
+      return worldToSvg(
+        {
+          x: center.x + Math.sqrt(level) * Math.cos(t),
+          y: center.y + Math.sqrt(2 * level) * Math.sin(t),
+        },
+        width,
+        height,
+        scale,
+      );
+    });
+  const svgPath = path.map((point) => worldToSvg(point, width, height, scale));
+
+  return (
+    <VisualFrame
+      icon={<LineChart size={18} aria-hidden />}
+      metrics={[
+        ["final loss", loss(final.x, final.y).toFixed(3)],
+        ["grad norm", Math.hypot(finalGrad.x, finalGrad.y).toFixed(3)],
+        ["status", alpha > 0.95 ? "unstable risk" : "descent"],
+      ]}
+      title="Gradient Descent Loss Landscape"
+    >
+      <div className="visual-layout">
+        <div className="control-stack">
+          <Slider label="learning rate" max={1.2} min={0.01} onChange={setAlpha} step={0.01} value={alpha} />
+          <Slider label="initial x" max={3} min={-3} onChange={setInitialX} step={0.05} value={initialX} />
+          <Slider label="initial y" max={3} min={-3} onChange={setInitialY} step={0.05} value={initialY} />
+        </div>
+        <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
+          {contourLevels.map((level) => (
+            <polyline className="grid-line-soft" fill="none" key={level} points={polyline(contour(level))} />
+          ))}
+          <polyline className="vector result" fill="none" points={polyline(svgPath)} />
+          {svgPath.map((point, index) => (
+            <circle className={index === 0 ? "point original" : "point result"} cx={point.x} cy={point.y} key={`${point.x}-${point.y}-${index}`} r={index === 0 ? 5 : 3} />
+          ))}
+          <circle className="joint" cx={worldToSvg(center, width, height, scale).x} cy={worldToSvg(center, width, height, scale).y} r="5" />
+          <text x={worldToSvg(center, width, height, scale).x + 8} y={worldToSvg(center, width, height, scale).y - 8}>minimum</text>
+        </svg>
+      </div>
+    </VisualFrame>
+  );
+}
+
+function GaussianBayesVisualizer() {
+  const [priorSigma, setPriorSigma] = useState(2);
+  const [measurementSigma, setMeasurementSigma] = useState(1);
+  const [measurementZ, setMeasurementZ] = useState(3);
+  const width = 430;
+  const height = 280;
+  const priorMu = 0;
+  const priorVar = priorSigma ** 2;
+  const measVar = measurementSigma ** 2;
+  const postVar = 1 / (1 / priorVar + 1 / measVar);
+  const postMu = postVar * (priorMu / priorVar + measurementZ / measVar);
+  const kalmanGain = priorVar / (priorVar + measVar);
+  const pdf = (x: number, mu: number, sigma: number) =>
+    Math.exp(-0.5 * ((x - mu) / sigma) ** 2) / (Math.sqrt(2 * Math.PI) * sigma);
+  const xs = Array.from({ length: 160 }, (_, index) => -6 + (12 * index) / 159);
+  const maxPdf = Math.max(
+    ...xs.flatMap((x) => [pdf(x, priorMu, priorSigma), pdf(x, measurementZ, measurementSigma), pdf(x, postMu, Math.sqrt(postVar))]),
+  );
+  const mapPoint = (x: number, y: number) => ({
+    x: 28 + ((x + 6) / 12) * (width - 56),
+    y: height - 34 - (y / maxPdf) * (height - 70),
+  });
+  const priorPoints = xs.map((x) => mapPoint(x, pdf(x, priorMu, priorSigma)));
+  const measPoints = xs.map((x) => mapPoint(x, pdf(x, measurementZ, measurementSigma)));
+  const postPoints = xs.map((x) => mapPoint(x, pdf(x, postMu, Math.sqrt(postVar))));
+
+  return (
+    <VisualFrame
+      icon={<Gauge size={18} aria-hidden />}
+      metrics={[
+        ["posterior mu", postMu.toFixed(2)],
+        ["posterior sigma", Math.sqrt(postVar).toFixed(2)],
+        ["Kalman K", kalmanGain.toFixed(2)],
+      ]}
+      title="Gaussian Bayes Update"
+    >
+      <div className="visual-layout">
+        <div className="control-stack">
+          <Slider label="prior sigma" max={5} min={0.2} onChange={setPriorSigma} step={0.05} value={priorSigma} />
+          <Slider label="measurement sigma" max={5} min={0.2} onChange={setMeasurementSigma} step={0.05} value={measurementSigma} />
+          <Slider label="measurement z" max={5} min={-5} onChange={setMeasurementZ} step={0.05} value={measurementZ} />
+        </div>
+        <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
+          <line className="axis" x1="24" x2={width - 24} y1={height - 34} y2={height - 34} />
+          <polyline className="vector original" fill="none" points={polyline(priorPoints)} />
+          <polyline className="vector accent" fill="none" points={polyline(measPoints)} />
+          <polyline className="vector result" fill="none" points={polyline(postPoints)} />
+          <text x="32" y="28">prior</text>
+          <text x="32" y="48">measurement</text>
+          <text x="32" y="68">posterior</text>
+        </svg>
+      </div>
+    </VisualFrame>
+  );
+}
+
+function OdeFiniteDiffVisualizer() {
+  const [dt, setDt] = useState(0.1);
+  const [h, setH] = useState(0.001);
+  const [lambda, setLambda] = useState(1);
+  const width = 430;
+  const height = 280;
+  const derivative = ((2 + h) ** 2 - (2 - h) ** 2) / (2 * h);
+  const derivativeError = Math.abs(derivative - 4);
+  const steps = Math.max(1, Math.round(2 / dt));
+  const euler: Point[] = [];
+  const truth: Point[] = [];
+  let x = 1;
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i * dt;
+    euler.push({ x: t, y: x });
+    truth.push({ x: t, y: Math.exp(-lambda * t) });
+    x += dt * (-lambda * x);
+  }
+  const mapCurve = (point: Point) => ({
+    x: 32 + (point.x / 2) * (width - 64),
+    y: height - 34 - point.y * (height - 72),
+  });
+  const finalError = Math.abs(euler[euler.length - 1].y - truth[truth.length - 1].y);
+
+  return (
+    <VisualFrame
+      icon={<Activity size={18} aria-hidden />}
+      metrics={[
+        ["df/dx error", derivativeError.toExponential(1)],
+        ["final error", finalError.toFixed(3)],
+        ["steps", String(steps)],
+      ]}
+      title="Finite Difference and ODE Error"
+    >
+      <div className="visual-layout">
+        <div className="control-stack">
+          <Slider label="dt" max={0.5} min={0.01} onChange={setDt} step={0.005} value={dt} />
+          <Slider label="difference h" max={0.1} min={0.000001} onChange={setH} step={0.001} value={h} />
+          <Slider label="decay lambda" max={5} min={0.1} onChange={setLambda} step={0.05} value={lambda} />
+        </div>
+        <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
+          <line className="axis" x1="28" x2={width - 28} y1={height - 34} y2={height - 34} />
+          <line className="axis" x1="32" x2="32" y1="26" y2={height - 34} />
+          <polyline className="vector original" fill="none" points={polyline(truth.map(mapCurve))} />
+          <polyline className="vector result" fill="none" points={polyline(euler.map(mapCurve))} />
+          <text x="42" y="30">true exp(-lambda t)</text>
+          <text x="42" y="50">Euler</text>
         </svg>
       </div>
     </VisualFrame>
@@ -216,84 +478,136 @@ function MatrixGridVisualizer() {
 function ManipulatorVisualizer() {
   const [q1, setQ1] = useState(35);
   const [q2, setQ2] = useState(55);
+  const [q3, setQ3] = useState(-25);
   const [targetX, setTargetX] = useState(1.0);
   const [targetY, setTargetY] = useState(0.8);
+  const [damping, setDamping] = useState(0.08);
   const l1 = 1.0;
   const l2 = 0.72;
+  const l3 = 0.45;
+  const lengths = [l1, l2, l3];
   const a1 = (q1 * Math.PI) / 180;
   const a2 = (q2 * Math.PI) / 180;
-  const joint = { x: l1 * Math.cos(a1), y: l1 * Math.sin(a1) };
-  const ee = { x: joint.x + l2 * Math.cos(a1 + a2), y: joint.y + l2 * Math.sin(a1 + a2) };
-  const workspace = useMemo(
-    () =>
-      Array.from({ length: 17 }, (_, i) => -Math.PI + (i * Math.PI) / 8).flatMap((sampleQ1) =>
-        Array.from({ length: 17 }, (_, j) => -Math.PI + (j * Math.PI) / 8).map((sampleQ2) => ({
-          x: l1 * Math.cos(sampleQ1) + l2 * Math.cos(sampleQ1 + sampleQ2),
-          y: l1 * Math.sin(sampleQ1) + l2 * Math.sin(sampleQ1 + sampleQ2),
-        })),
-      ),
-    [],
-  );
-  const distance = Math.hypot(targetX, targetY);
-  const cosQ2 = Math.max(-1, Math.min(1, (distance * distance - l1 * l1 - l2 * l2) / (2 * l1 * l2)));
-  const ikQ2 = Math.acos(cosQ2);
-  const ikQ1 = Math.atan2(targetY, targetX) - Math.atan2(l2 * Math.sin(ikQ2), l1 + l2 * Math.cos(ikQ2));
-  const ikJoint = { x: l1 * Math.cos(ikQ1), y: l1 * Math.sin(ikQ1) };
-  const ikEe = {
-    x: ikJoint.x + l2 * Math.cos(ikQ1 + ikQ2),
-    y: ikJoint.y + l2 * Math.sin(ikQ1 + ikQ2),
+  const a3 = (q3 * Math.PI) / 180;
+  const reachMax = lengths.reduce((sum, value) => sum + value, 0);
+  const fk3 = (q: number[]) => {
+    let theta = 0;
+    let x = 0;
+    let y = 0;
+    const joints = [{ x: 0, y: 0 }];
+    q.forEach((angle, index) => {
+      theta += angle;
+      x += lengths[index] * Math.cos(theta);
+      y += lengths[index] * Math.sin(theta);
+      joints.push({ x, y });
+    });
+    return { joints, ee: joints[joints.length - 1], theta };
   };
-  const jacobianDeterminant = l1 * l2 * Math.sin(a2);
-  const manipulability = Math.abs(jacobianDeterminant);
+  const jacobian3 = (q: number[]) => {
+    const cumulative = q.map((_, index) => q.slice(0, index + 1).reduce((sum, value) => sum + value, 0));
+    return q.map((_, column) => {
+      let dx = 0;
+      let dy = 0;
+      for (let link = column; link < lengths.length; link += 1) {
+        dx += -lengths[link] * Math.sin(cumulative[link]);
+        dy += lengths[link] * Math.cos(cumulative[link]);
+      }
+      return { dx, dy };
+    });
+  };
+  const solve2 = (a: number, b: number, c: number, d: number, x: number, y: number) => {
+    const det = a * d - b * c;
+    if (Math.abs(det) < 1e-8) return { x: 0, y: 0 };
+    return { x: (d * x - b * y) / det, y: (-c * x + a * y) / det };
+  };
+  const dlsStep = (q: number[], target: Point) => {
+    const current = fk3(q).ee;
+    const error = { x: target.x - current.x, y: target.y - current.y };
+    const j = jacobian3(q);
+    const jj00 = j.reduce((sum, col) => sum + col.dx * col.dx, 0) + damping * damping;
+    const jj01 = j.reduce((sum, col) => sum + col.dx * col.dy, 0);
+    const jj11 = j.reduce((sum, col) => sum + col.dy * col.dy, 0) + damping * damping;
+    const solved = solve2(jj00, jj01, jj01, jj11, error.x, error.y);
+    const rawDelta = j.map((col) => col.dx * solved.x + col.dy * solved.y);
+    const deltaNorm = Math.hypot(...rawDelta);
+    const scaleDelta = deltaNorm > 0.32 ? 0.32 / deltaNorm : 1;
+    return q.map((angle, index) => angle + rawDelta[index] * scaleDelta);
+  };
+  const q = [a1, a2, a3];
+  const fk = fk3(q);
+  const [base, joint1, joint2, ee] = fk.joints;
+  const jacobian = jacobian3(q);
+  const j11 = jacobian[0].dx;
+  const j12 = jacobian[1].dx;
+  const j13 = jacobian[2].dx;
+  const j21 = jacobian[0].dy;
+  const j22 = jacobian[1].dy;
+  const j23 = jacobian[2].dy;
+  const jj00 = j11 * j11 + j12 * j12 + j13 * j13;
+  const jj01 = j11 * j21 + j12 * j22 + j13 * j23;
+  const jj11 = j21 * j21 + j22 * j22 + j23 * j23;
+  const detJjt = Math.max(0, jj00 * jj11 - jj01 * jj01);
+  const manipulability = Math.sqrt(detJjt);
+  const detJ12 = l1 * l2 * Math.sin(a2);
   const isSingular = manipulability < 0.08;
-  const qdot = { q1: 0.35, q2: -0.2 };
+  const targetDistance = Math.hypot(targetX, targetY);
+  const isReachable = targetDistance <= reachMax + 1e-6;
+  const qdot = { q1: 0.35, q2: -0.2, q3: 0.15 };
   const xdot = {
-    x:
-      (-l1 * Math.sin(a1) - l2 * Math.sin(a1 + a2)) * qdot.q1 +
-      -l2 * Math.sin(a1 + a2) * qdot.q2,
-    y:
-      (l1 * Math.cos(a1) + l2 * Math.cos(a1 + a2)) * qdot.q1 +
-      l2 * Math.cos(a1 + a2) * qdot.q2,
+    x: j11 * qdot.q1 + j12 * qdot.q2 + j13 * qdot.q3,
+    y: j21 * qdot.q1 + j22 * qdot.q2 + j23 * qdot.q3,
   };
   const width = 420;
   const height = 310;
-  const scale = 88;
+  const scale = 66;
   const origin = worldToSvg({ x: 0, y: 0 }, width, height, scale);
-  const sJoint = worldToSvg(joint, width, height, scale);
   const sEe = worldToSvg(ee, width, height, scale);
   const sTarget = worldToSvg({ x: targetX, y: targetY }, width, height, scale);
-  const sIkJoint = worldToSvg(ikJoint, width, height, scale);
-  const sIkEe = worldToSvg(ikEe, width, height, scale);
+  const sJoint1 = worldToSvg(joint1, width, height, scale);
+  const sJoint2 = worldToSvg(joint2, width, height, scale);
   const sVelocityEnd = {
     x: sEe.x + xdot.x * 76,
     y: sEe.y - xdot.y * 76,
   };
-  const j11 = -l1 * Math.sin(a1) - l2 * Math.sin(a1 + a2);
-  const j12 = -l2 * Math.sin(a1 + a2);
-  const j21 = l1 * Math.cos(a1) + l2 * Math.cos(a1 + a2);
-  const j22 = l2 * Math.cos(a1 + a2);
-  const jj00 = j11 * j11 + j12 * j12;
-  const jj01 = j11 * j21 + j12 * j22;
-  const jj11 = j21 * j21 + j22 * j22;
   const trace = jj00 + jj11;
   const discr = Math.sqrt(Math.max(0, (jj00 - jj11) ** 2 + 4 * jj01 ** 2));
   const lambdaMax = Math.max(0, (trace + discr) / 2);
   const lambdaMin = Math.max(0, (trace - discr) / 2);
   const ellipseAngle = (Math.atan2(2 * jj01, jj00 - jj11) * 90) / Math.PI;
-  const ikTrace = Array.from({ length: 7 }, (_, index) => {
-    const alpha = index / 6;
-    const q1Step = a1 + (ikQ1 - a1) * (1 - Math.exp(-3 * alpha));
-    const q2Step = a2 + (ikQ2 - a2) * (1 - Math.exp(-3 * alpha));
-    const p = {
-      x: l1 * Math.cos(q1Step) + l2 * Math.cos(q1Step + q2Step),
-      y: l1 * Math.sin(q1Step) + l2 * Math.sin(q1Step + q2Step),
-    };
-    return { point: worldToSvg(p, width, height, scale), error: Math.hypot(targetX - p.x, targetY - p.y) };
+  const ikTrace = Array.from({ length: 10 }, (_, index) => index).reduce<Array<{ point: Point; error: number; q: number[] }>>((traceItems, index) => {
+    const previousQ = index === 0 ? q : traceItems[traceItems.length - 1].q;
+    const nextQ = index === 0 ? previousQ : dlsStep(previousQ, { x: targetX, y: targetY });
+    const nextFk = fk3(nextQ);
+    traceItems.push({
+      point: worldToSvg(nextFk.ee, width, height, scale),
+      error: Math.hypot(targetX - nextFk.ee.x, targetY - nextFk.ee.y),
+      q: nextQ,
+    });
+    return traceItems;
+  }, []);
+  const finalIk = ikTrace[ikTrace.length - 1];
+  const l23 = l2 + l3;
+  const seedDistance = Math.max(0.001, Math.min(l1 + l23 - 0.001, targetDistance));
+  const cosSeed = Math.max(-1, Math.min(1, (seedDistance * seedDistance - l1 * l1 - l23 * l23) / (2 * l1 * l23)));
+  const elbowUpQ2 = Math.acos(cosSeed);
+  const elbowDownQ2 = -elbowUpQ2;
+  const seedQ1 = (seedQ2: number) => Math.atan2(targetY, targetX) - Math.atan2(l23 * Math.sin(seedQ2), l1 + l23 * Math.cos(seedQ2));
+  const compactTransform = (label: string, angle: number, x: number, y: number) => {
+    const c = Math.cos(angle).toFixed(2);
+    const s = Math.sin(angle).toFixed(2);
+    return [label, `${c} ${(-Number(s)).toFixed(2)} | ${x.toFixed(2)} ; ${s} ${c} | ${y.toFixed(2)}`];
+  };
+  const localStep = (angle: number, length: number) => ({
+    x: length * Math.cos(angle),
+    y: length * Math.sin(angle),
   });
+  const step12 = localStep(a2, l2);
+  const step23 = localStep(a3, l3);
   const transformRows = [
-    ["T01", `${Math.cos(a1).toFixed(2)} ${(-Math.sin(a1)).toFixed(2)} ${joint.x.toFixed(2)}`],
-    ["T12", `${Math.cos(a2).toFixed(2)} ${(-Math.sin(a2)).toFixed(2)} ${l2.toFixed(2)}`],
-    ["T02", `${Math.cos(a1 + a2).toFixed(2)} ${(-Math.sin(a1 + a2)).toFixed(2)} ${ee.x.toFixed(2)}`],
+    compactTransform("T01", a1, joint1.x, joint1.y),
+    compactTransform("T12", a2, step12.x, step12.y),
+    compactTransform("T23", a3, step23.x, step23.y),
+    compactTransform("T03", fk.theta, ee.x, ee.y),
   ];
 
   return (
@@ -301,33 +615,36 @@ function ManipulatorVisualizer() {
       icon={<Crosshair size={18} aria-hidden />}
       metrics={[
         ["FK end-effector", `(${ee.x.toFixed(2)}, ${ee.y.toFixed(2)})`],
-        ["IK q", `${((ikQ1 * 180) / Math.PI).toFixed(1)}°, ${((ikQ2 * 180) / Math.PI).toFixed(1)}°`],
-        ["det J", jacobianDeterminant.toFixed(3)],
+        ["DLS final error", finalIk.error.toFixed(3)],
+        ["det(JJᵀ)", detJjt.toFixed(3)],
         ["manipulability", manipulability.toFixed(3)],
+        ["det J12", detJ12.toFixed(3)],
       ]}
-      title="2링크 FK / IK"
+      title="3링크 FK Matrix / DLS IK / Jacobian Singularity"
     >
       <>
         <div className="visual-layout">
           <div className="control-stack">
             <Slider label="q1" max={180} min={-180} onChange={setQ1} step={1} suffix="°" value={q1} />
             <Slider label="q2" max={180} min={-180} onChange={setQ2} step={1} suffix="°" value={q2} />
-            <Slider label="target x" max={1.6} min={-1.6} onChange={setTargetX} step={0.05} value={targetX} />
-            <Slider label="target y" max={1.6} min={-1.6} onChange={setTargetY} step={0.05} value={targetY} />
-            {isSingular && <div className="singularity-banner">singularity 근처 · q2가 0° 또는 180°에 가까움</div>}
+            <Slider label="q3" max={180} min={-180} onChange={setQ3} step={1} suffix="°" value={q3} />
+            <Slider label="target x" max={2.2} min={-2.2} onChange={setTargetX} step={0.05} value={targetX} />
+            <Slider label="target y" max={2.2} min={-2.2} onChange={setTargetY} step={0.05} value={targetY} />
+            <Slider label="IK damping" max={0.3} min={0.01} onChange={setDamping} step={0.01} value={damping} />
+            {isSingular && <div className="singularity-banner">singularity 근처 · manipulability ellipse가 선분으로 붕괴</div>}
+            {!isReachable && <div className="singularity-banner">workspace 밖 target · DLS가 끝까지 도달하지 못함</div>}
           </div>
           <svg className="plot" role="img" viewBox={`0 0 ${width} ${height}`}>
-            <circle className="workspace-ring" cx={origin.x} cy={origin.y} r={(l1 + l2) * scale} />
-            {workspace.map((point, index) => {
-              const sample = worldToSvg(point, width, height, scale);
-              return <circle className="workspace-sample" cx={sample.x} cy={sample.y} key={index} r="1.8" />;
-            })}
+            <circle className="workspace-ring" cx={origin.x} cy={origin.y} r={reachMax * scale} />
+            <circle className="workspace-ring workspace-inner" cx={origin.x} cy={origin.y} r={Math.max(0.03, Math.abs(l1 - l2 - l3)) * scale} />
+            {ikTrace.map((item, index) => (
+              <circle className="workspace-sample" cx={item.point.x} cy={item.point.y} key={index} r="1.8" />
+            ))}
             <line className="axis" x1="20" x2={width - 20} y1={origin.y} y2={origin.y} />
             <line className="axis" x1={origin.x} x2={origin.x} y1="20" y2={height - 20} />
-            <line className="link ghost" x1={origin.x} x2={sIkJoint.x} y1={origin.y} y2={sIkJoint.y} />
-            <line className="link ghost" x1={sIkJoint.x} x2={sIkEe.x} y1={sIkJoint.y} y2={sIkEe.y} />
-            <line className="link" x1={origin.x} x2={sJoint.x} y1={origin.y} y2={sJoint.y} />
-            <line className="link" x1={sJoint.x} x2={sEe.x} y1={sJoint.y} y2={sEe.y} />
+            <line className="link" x1={origin.x} x2={sJoint1.x} y1={origin.y} y2={sJoint1.y} />
+            <line className="link" x1={sJoint1.x} x2={sJoint2.x} y1={sJoint1.y} y2={sJoint2.y} />
+            <line className="link" x1={sJoint2.x} x2={sEe.x} y1={sJoint2.y} y2={sEe.y} />
             <line className="velocity-arrow" x1={sEe.x} x2={sVelocityEnd.x} y1={sEe.y} y2={sVelocityEnd.y} />
             <ellipse
               className="manip-ellipse"
@@ -342,10 +659,13 @@ function ManipulatorVisualizer() {
               <circle className="ik-trace-dot" cx={item.point.x} cy={item.point.y} key={index} r={2.5 + index * 0.35} />
             ))}
             <circle className="joint" cx={origin.x} cy={origin.y} r="6" />
-            <circle className="joint" cx={sJoint.x} cy={sJoint.y} r="6" />
+            <circle className="joint" cx={sJoint1.x} cy={sJoint1.y} r="6" />
+            <circle className="joint" cx={sJoint2.x} cy={sJoint2.y} r="6" />
             <circle className="point result" cx={sEe.x} cy={sEe.y} r="6" />
             <circle className="point target" cx={sTarget.x} cy={sTarget.y} r="6" />
             <text x={sTarget.x + 8} y={sTarget.y - 8}>target</text>
+            <text x="24" y="28">workspace ring</text>
+            <text x="24" y="48">dots: DLS IK iterations</text>
           </svg>
         </div>
         <div className="matrix-step-grid">
@@ -358,6 +678,9 @@ function ManipulatorVisualizer() {
         </div>
         <div className="ik-trace-summary">
           <strong>IK convergence</strong>
+          <span>analytic elbow-up seed: {((seedQ1(elbowUpQ2) * 180) / Math.PI).toFixed(1)}°, {((elbowUpQ2 * 180) / Math.PI).toFixed(1)}°</span>
+          <span>analytic elbow-down seed: {((seedQ1(elbowDownQ2) * 180) / Math.PI).toFixed(1)}°, {((elbowDownQ2 * 180) / Math.PI).toFixed(1)}°</span>
+          <span>workspace: {isReachable ? "reachable" : "unreachable"}</span>
           {ikTrace.map((item, index) => (
             <span key={index}>#{index}: e={item.error.toFixed(3)}</span>
           ))}
@@ -1343,9 +1666,10 @@ function VisualizationSpecInteractiveCard({ spec }: { spec: VisualizationSpec })
   );
 }
 
-function VisualizationSpecCards({ section }: { section: LessonSection }) {
+function VisualizationSpecCards({ section, availableIds }: { section: LessonSection, availableIds: string[] }) {
   const specs = section.v2Session?.visualizations ?? [];
-  if (specs.length === 0) return null;
+  const implementedSpecs = specs.filter(spec => availableIds.includes(spec.id));
+  if (implementedSpecs.length === 0) return null;
   return (
     <section className="panel visual-panel">
       <div className="panel-heading">
@@ -1353,7 +1677,7 @@ function VisualizationSpecCards({ section }: { section: LessonSection }) {
         <h2>시각화 연결 정보</h2>
       </div>
       <div className="cheat-grid">
-        {specs.map((spec) => <VisualizationSpecInteractiveCard key={spec.id} spec={spec} />)}
+        {implementedSpecs.map((spec) => <VisualizationSpecInteractiveCard key={spec.id} spec={spec} />)}
       </div>
     </section>
   );
@@ -1633,6 +1957,10 @@ export function VisualizerHub({ id, section }: VisualizerHubProps) {
     "backprop-chain": <BackpropChainVisualizer />,
     "svd-jacobian": <SVDJacobianVisualizer />,
     "foundation-model": <FoundationModelVisualizer />,
+    "cross-product-3d": <CrossProduct3DVisualizer />,
+    "loss-landscape": <LossLandscapeVisualizer />,
+    "bayes-gaussian": <GaussianBayesVisualizer />,
+    "ode-finite-diff": <OdeFiniteDiffVisualizer />,
     "prompt-eval-harness": <RetrievalFlowVisualizer />,
   };
   const visualizer = visualizers[id];
@@ -1640,7 +1968,7 @@ export function VisualizerHub({ id, section }: VisualizerHubProps) {
     return (
       <div className="visual-stack">
         {visualizer}
-        <VisualizationSpecCards section={section} />
+        <VisualizationSpecCards section={section} availableIds={Object.keys(visualizers)} />
       </div>
     );
   }

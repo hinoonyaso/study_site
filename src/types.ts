@@ -39,6 +39,10 @@ export type VisualizerId =
   | "svd-jacobian"
   | "foundation-model"
   | "matrix-grid"
+  | "cross-product-3d"
+  | "loss-landscape"
+  | "bayes-gaussian"
+  | "ode-finite-diff"
   | "jacobian-singularity"
   | "bicycle-stanley"
   | "prompt-eval-harness";

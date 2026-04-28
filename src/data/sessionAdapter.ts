@@ -25,6 +25,13 @@ const graphIdsByPart = (session: Session): TheoryGraphId[] => {
 };
 
 const visualizerIdBySession = (session: Session): VisualizerId => {
+  if (session.id.includes("matrix_multiplication_grid_basics")) return "matrix-grid";
+  if (session.id.includes("pseudoinverse_rank_deficient_basics")) return "svd-jacobian";
+  if (session.id.includes("partial_derivative_gradient_tangent_plane")) return "loss-landscape";
+  if (session.id.includes("gradient_descent_loss_landscape")) return "loss-landscape";
+  if (session.id.includes("gaussian_bayes_update_distribution")) return "bayes-gaussian";
+  if (session.id.includes("finite_difference_ode_solver_basics")) return "ode-finite-diff";
+  if (session.id.includes("cross_product_torque")) return "cross-product-3d";
   if (session.id.includes("vector_matrix_inverse_cross_product_basics")) return "matrix-grid";
   if (session.id.includes("fk_matrix_ik_singularity_visual_lab")) return "jacobian-singularity";
   if (session.id.includes("bicycle_model_stanley_controller")) return "bicycle-stanley";
@@ -250,9 +257,17 @@ const legacyQuizFor = (question: Session["quizzes"][number]): QuizQuestion => ({
   points: question.type === "system_design" || question.type === "robot_scenario" ? 2 : 1,
 });
 
+const levelBadge = (session: Session): string | undefined => {
+  if (!session.level) return undefined;
+  const label = session.level === "beginner" ? "🟢 입문" : session.level === "intermediate" ? "🟡 중급" : "🔴 고급";
+  const stars = session.difficulty === "easy" ? "★☆☆" : session.difficulty === "medium" ? "★★☆" : "★★★";
+  return `${label} ${stars}`;
+};
+
 export const sessionToLessonSection = (session: Session): LessonSection => ({
   id: session.id,
   title: session.title,
+  groupTitle: levelBadge(session),
   focus: `${session.part} · ${session.learningObjectives.join(" ")}`,
   level: session.level === "beginner" ? 1 : session.level === "intermediate" ? 2 : 3,
   theory: [theoryUnitFor(session)],

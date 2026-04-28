@@ -10,6 +10,8 @@ import {
   aPlusVisionSessions,
 } from "./aPlusExtensionSessions";
 import { autonomousDrivingSessions } from "./autonomousDrivingSessions";
+import { bicycleModelStanleySessions } from "./bicycleModelStanleySessions";
+import { occupancyGridCostmapSessions } from "./occupancyGridCostmapSessions";
 import { backpropSessions } from "./backpropSessions";
 import { calculusSessions } from "./calculusSessions";
 import { cnnBasicSessions } from "./cnnBasicSessions";
@@ -44,6 +46,7 @@ import {
   mathFoundationAuditChecklist,
   physicalAICoreAuditChecklist,
 } from "./finalImprovementSessions";
+import { foundationGapSessions } from "./foundationGapSessions";
 import { imuPreintegrationSessions } from "./imuPreintegrationSessions";
 import { integralEnergySessions } from "./integralEnergySessions";
 import { integrationProjectSessions } from "./integrationProjectSessions";
@@ -107,149 +110,209 @@ type PartDefinition = {
   sessions: Session[];
 };
 
+const friendlySessionTitles: Record<string, string> = {
+  // Math Foundations
+  "eigenvalue_covariance_ellipse": "고유값과 불확실성 타원 (공분산)",
+  "svd_condition_number": "SVD와 수치 안정성 (Condition Number)",
+  "least_squares": "최소제곱법 (오차 줄이기)",
+  "gaussian_mle": "가우시안 분포와 센서 노이즈 추정",
+  "low_pass_filter_imu": "로우패스 필터로 센서 노이즈 잡기",
+  "vector_matrix_basics": "벡터와 행렬 기초 (공간의 이해)",
+  "probability_variable_gaussian": "확률변수와 가우시안 분포 기초",
+  "calculus_basics": "미분과 적분 기초",
+  "ode_basics": "상미분방정식(ODE) 기초",
+  "signal_processing_fft": "신호 처리와 FFT 기초",
+  // Robot Math
+  "quaternion_slerp": "쿼터니언(Quaternion)과 부드러운 회전",
+  "numerical_jacobian": "수치적 자코비안(Jacobian) 계산",
+  "dh_parameters": "DH 파라미터 (로봇 관절 모델링)",
+  "fk_ik_basics": "정기구학(FK)과 역기구학(IK) 기초",
+  // Dynamics & Control
+  "state_space_representation": "상태공간(State Space) 표현법",
+  "pid_control": "PID 제어 (기본 피드백 제어)",
+  "lyapunov_stability": "리아푸노프(Lyapunov) 안정성 이론",
+  "mpc_basics": "모델 예측 제어(MPC) 기초",
+  // Driving
+  "bicycle_model": "자전거 모델 (차량 기구학)",
+  "stanley_control": "스탠리(Stanley) 제어 알고리즘",
+  "kalman_filter_basics": "칼만 필터(Kalman Filter) 기초",
+  "occupancy_grid": "점유 격자 지도(Occupancy Grid)",
+  "a_star_path_planning": "A* 경로 계획 알고리즘",
+  "slam_basics": "SLAM (동시 위치추정 및 지도작성) 기초",
+  "particle_filter": "파티클 필터(Particle Filter)",
+  // Vision
+  "opencv_basics": "OpenCV 기초와 이미지 처리",
+  "pinhole_camera_model": "핀홀 카메라 모델과 투영",
+  "cnn_basics": "CNN 기반 이미지 인식 기초",
+  "semantic_segmentation": "시맨틱 세그멘테이션 (픽셀 단위 분류)",
+  "pose_estimation": "자세 추정(Pose Estimation)",
+  // ROS2
+  "ros2_pub_sub": "ROS 2 Pub/Sub (노드 간 통신)",
+  "ros2_parameters_launch": "ROS 2 파라미터와 Launch 파일",
+  "ros2_qos": "ROS 2 QoS (통신 품질 제어)",
+  // Physical AI
+  "behavior_cloning_pytorch": "행동 복제(Behavior Cloning) 기초",
+  "rl_basics": "강화학습(RL) 기초",
+  "sim2real_basics": "Sim2Real (시뮬레이션에서 현실로)",
+  "vla_concept": "VLA (Vision-Language-Action) 모델 개념",
+  "world_models": "월드 모델(World Models)",
+};
+
+const mapFriendlySessions = (sessions: Session[]): Session[] => {
+  return sessions.map(s => {
+    if (friendlySessionTitles[s.id]) {
+      return { ...s, title: `${s.title} 👉 ${friendlySessionTitles[s.id]}` };
+    }
+    return s;
+  });
+};
+
 export const v2PartDefinitions: PartDefinition[] = [
   {
     id: "v2-part-1-math-foundations",
-    title: "Part 1. Physical AI를 위한 기초수학",
-    summary: "고유값, SVD, 최소제곱, MLE, 신호처리를 코드랩과 시각화로 연결한다.",
-    sessions: [
+    title: "Part 1. 로봇 공부의 첫걸음 (기초 수학과 환경 설정)",
+    summary: "로봇을 움직이기 위해 꼭 알아야 할 기초 수학(벡터, 행렬, 미적분, 확률)을 코드와 시각화로 쉽게 배웁니다.",
+    sessions: mapFriendlySessions([
       ...structuralMathFoundationSessions,
-      ...criticalMathSessions,
-      ...finalMathDepthSessions,
-      ...aPlusMathSessions,
+      ...foundationGapSessions,
       ...crossProductTorqueSessions,
       ...integralEnergySessions,
-      ...backpropSessions,
-      ...convexOptimizationSessions,
-      ...signalProcessingSessions,
-      ...odeSessions,
-      ...calculusSessions,
       ...mathFoundationSessions,
-    ],
+      ...calculusSessions,
+      ...odeSessions,
+      ...backpropSessions,
+      ...signalProcessingSessions,
+      ...criticalMathSessions,
+      ...convexOptimizationSessions,
+      ...finalMathDepthSessions,
+      ...aPlusMathSessions,
+    ]),
   },
   {
     id: "v2-part-2-robot-math",
-    title: "Part 2. 로봇 수학",
-    summary: "좌표계, 회전, FK/IK, Jacobian 세션을 v2 Session 구조로 확장할 공간이다.",
-    sessions: [
+    title: "Part 2. 로봇팔의 뼈대와 관절 움직이기 (기구학과 회전)",
+    summary: "좌표계, 3D 회전(쿼터니언), FK/IK, 자코비안 등 로봇의 관절을 원하는 대로 움직이는 방법을 익힙니다.",
+    sessions: mapFriendlySessions([
       ...structuralRobotMathSessions,
-      ...remainingRobotMathSessions,
-      ...finalRobotMathDepthSessions,
-      ...aPlusRobotMathSessions,
+      ...robotMathSessions,
       ...quaternionSessions,
       ...svdJacobianApplicationSessions,
       ...numericalJacobianSessions,
+      ...remainingRobotMathSessions,
       ...trajectoryPlanningSessions,
-      ...robotMathSessions,
-    ],
-  },
-  {
-    id: "v2-part-cpp-robot-sw",
-    title: "Part C++. C++ 로봇SW 기초",
-    summary: "Python에서 이해한 로봇 수학을 C++ Eigen 기반 실전 구현으로 연결한다.",
-    sessions: [...criticalRos2Sessions, ...aPlusCppRobotSessions, ...cppEigenSessions],
+      ...finalRobotMathDepthSessions,
+      ...aPlusRobotMathSessions,
+    ]),
   },
   {
     id: "v2-part-3-dynamics-control",
-    title: "Part 3. 로봇 동역학과 제어",
-    summary: "Lagrange 동역학, 토크 계산, LQR/Riccati를 실행형 코드랩으로 연결한다.",
-    sessions: [
-      ...remainingControlSessions,
-      ...remainingControlExtSessions,
-      ...remainingContactSessions,
-      ...finalControlDepthSessions,
-      ...criticalRobotDynamicsSessions,
-      ...aPlusControlSessions,
-      ...mpcSessions,
-      ...lyapunovStabilitySessions,
+    title: "Part 3. 로봇을 부드럽고 정확하게 조종하기 (제어와 동역학)",
+    summary: "동역학과 힘, PID 제어부터 상태공간, MPC, 리아푸노프 안정성까지 로봇을 부드럽고 정확하게 제어하는 기술을 배웁니다.",
+    sessions: mapFriendlySessions([
       ...stateSpaceSessions,
       ...dynamicsControlSessions,
-    ],
+      ...remainingControlSessions,
+      ...lyapunovStabilitySessions,
+      ...criticalRobotDynamicsSessions,
+      ...mpcSessions,
+      ...remainingControlExtSessions,
+      ...finalControlDepthSessions,
+      ...remainingContactSessions,
+      ...aPlusControlSessions,
+    ]),
   },
   {
     id: "v2-part-4-autonomous-driving",
-    title: "Part 4. 자율주행과 SLAM",
-    summary: "EKF localization과 covariance ellipse 해석을 우선 제공한다.",
-    sessions: [
+    title: "Part 4. 모바일 로봇이 스스로 길을 찾는 법 (자율주행과 SLAM)",
+    summary: "칼만 필터, 파티클 필터, 경로 계획(A*), 점유 격자 지도 등 자율주행과 SLAM의 핵심 원리를 구현합니다.",
+    sessions: mapFriendlySessions([
+      ...autonomousDrivingSessions,
       ...structuralDrivingSessions,
+      ...bicycleModelStanleySessions,
+      ...kalmanFilterSessions,
+      ...occupancyGridCostmapSessions,
+      ...pathPlanningSessions,
+      ...dwaObstacleSessions,
       ...criticalDrivingSessions,
-      ...finalDrivingDepthSessions,
-      ...aPlusDrivingSessions,
-      ...particleFilterSessions,
+      ...slamSessions,
       ...sensorFusionSessions,
+      ...particleFilterSessions,
       ...imuPreintegrationSessions,
       ...poseGraphSLAMSessions,
-      ...dwaObstacleSessions,
-      ...slamSessions,
-      ...kalmanFilterSessions,
-      ...autonomousDrivingSessions,
-      ...pathPlanningSessions,
-    ],
+      ...finalDrivingDepthSessions,
+      ...aPlusDrivingSessions,
+    ]),
   },
   {
     id: "v2-part-5-robot-vision",
-    title: "Part 5. 인식 AI와 로봇 비전",
-    summary: "Object detection, IoU, NMS를 robot action pipeline과 연결한다.",
-    sessions: [
+    title: "Part 5. 로봇에게 세상 보는 눈 달아주기 (컴퓨터 비전)",
+    summary: "카메라 모델, 이미지 처리(OpenCV)부터 CNN 기반 객체 인식, 시맨틱 세그멘테이션까지 로봇의 시각 인지를 학습합니다.",
+    sessions: mapFriendlySessions([
+      ...opencvBasicSessions,
+      ...pinholeProjectionSessions,
+      ...cnnBasicSessions,
+      ...robotVisionSessions,
       ...structuralVisionSessions,
+      ...depthEstimationSessions,
+      ...semanticSegmentationSessions,
+      ...poseEstimationSessions,
       ...criticalVisionDeploymentSessions,
       ...finalVisionDeploymentDepthSessions,
       ...aPlusVisionSessions,
-      ...opencvBasicSessions,
-      ...poseEstimationSessions,
-      ...depthEstimationSessions,
-      ...cnnBasicSessions,
-      ...pinholeProjectionSessions,
-      ...semanticSegmentationSessions,
-      ...robotVisionSessions,
-    ],
+    ]),
   },
   {
-    id: "v2-part-6-ros2",
-    title: "Part 6. ROS2 실전 연결",
-    summary: "TF2 frame/time 오류를 코드와 시스템 진단으로 다룬다.",
-    sessions: [...structuralRos2Sessions, ...aPlusRos2Sessions, ...ros2ControlPidSessions, ...ros2SubscriberLoopSessions, ...ros2Sessions],
-  },
-  {
-    id: "v2-part-7-physical-ai",
-    title: "Part 7. Physical AI / Embodied AI",
-    summary: "Behavior Cloning, Sim2Real, domain randomization을 실제 정책 학습 흐름으로 연결한다.",
-    sessions: [
-      ...remainingPhysicalAISessions,
-      ...finalPhysicalAIDepthSessions,
-      ...criticalPhysicalAISessions,
-      ...aPlusPhysicalAISessions,
+    id: "v2-part-6-physical-ai",
+    title: "Part 6. 인공지능으로 로봇 학습시키기 (Physical AI)",
+    summary: "행동 복제(Behavior Cloning), 강화학습(RL), Sim2Real 등 인공지능을 사용해 로봇이 스스로 동작을 학습하게 만듭니다.",
+    sessions: mapFriendlySessions([
+      ...pytorchBCSessions,
+      ...physicalAISessions,
       ...rlBasicSessions,
+      ...remainingPhysicalAISessions,
+      ...criticalPhysicalAISessions,
       ...vlaConceptSessions,
       ...worldModelSessions,
       ...robotFoundationModelSessions,
-      ...pytorchBCSessions,
-      ...physicalAISessions,
-    ],
+      ...finalPhysicalAIDepthSessions,
+      ...aPlusPhysicalAISessions,
+    ]),
   },
   {
-    id: "v2-part-8-safety-system",
-    title: "Part 8. 실시간성, 안전성, 시스템 통합",
-    summary: "Watchdog, failsafe, latency, logging 세션을 v2 구조로 확장할 공간이다.",
-    sessions: [...criticalSafetySessions, ...finalSafetyDepthSessions, ...safetySystemSessions],
+    id: "v2-part-7-ros2-cpp",
+    title: "Part 7. 실전 로봇 소프트웨어 만들기 (ROS 2와 C++)",
+    summary: "지금까지 배운 파이썬 코드를 C++로 옮기고, ROS 2 통신 시스템을 활용해 실무 수준의 로봇 소프트웨어를 구축합니다.",
+    sessions: mapFriendlySessions([
+      ...cppEigenSessions,
+      ...criticalRos2Sessions,
+      ...aPlusCppRobotSessions,
+      ...ros2Sessions,
+      ...ros2SubscriberLoopSessions,
+      ...structuralRos2Sessions,
+      ...ros2ControlPidSessions,
+      ...aPlusRos2Sessions,
+    ]),
   },
   {
-    id: "v2-part-9-integration-projects",
-    title: "Part 9. 통합 미니 프로젝트",
-    summary: "Localization, arm control, detection-to-action, BC, Sim2Real 프로젝트를 담을 공간이다.",
-    sessions: [...finalIntegrationDepthSessions, ...integrationProjectSessions],
+    id: "v2-part-8-safety-integration",
+    title: "Part 8. 시스템 안정화 및 미니 프로젝트 통합",
+    summary: "시스템의 안전성과 실시간성을 검증하고, 여러 모듈을 합쳐 로봇 자율주행과 로봇팔 조작 미니 프로젝트를 완성합니다.",
+    sessions: mapFriendlySessions([
+      ...safetySystemSessions,
+      ...criticalSafetySessions,
+      ...finalSafetyDepthSessions,
+      ...integrationProjectSessions,
+      ...finalIntegrationDepthSessions,
+      ...promptHarnessSessions,
+    ]),
   },
   {
-    id: "v2-part-11-prompt-context-harness",
-    title: "Part 11. 프롬프트/컨텍스트/하네스 엔지니어링",
-    summary: "Physical AI agent를 프롬프트, 검색 컨텍스트, JSON schema, golden eval harness로 검증 가능하게 만든다.",
-    sessions: promptHarnessSessions,
-  },
-  {
-    id: "v2-part-10-final-exam",
-    title: "Part 10. 최종 평가",
-    summary: "수학 계산, 수식 유도, 코드 구현, 시스템 설계를 종합 평가한다.",
-    sessions: finalExamSessions,
+    id: "v2-part-9-final-exam",
+    title: "Part 9. 최종 평가 및 수료",
+    summary: "학습한 모든 이론과 실습 내용(수학, 유도, 구현, 시스템 설계)을 종합적으로 검증하는 평가 세션입니다.",
+    sessions: mapFriendlySessions([
+      ...finalExamSessions,
+    ]),
   },
 ];
 
@@ -295,11 +358,6 @@ const legacySectionIdsByPartId: Record<string, string[]> = {
     "manipulator-kinematics--fk-unit-tests",
     "manipulator-kinematics--manipulability-ellipsoid",
   ],
-  "v2-part-cpp-robot-sw": [
-    "cpp-python-ros2--cpp-structure",
-    "cpp-python-ros2--cmake-package-dependencies",
-    "cpp-python-ros2--eigen-opencv-bindings",
-  ],
   "v2-part-3-dynamics-control": [
     "manipulator-dynamics-control--time-scaling-and-limits",
     "manipulator-dynamics-control--computed-torque-stability",
@@ -334,7 +392,18 @@ const legacySectionIdsByPartId: Record<string, string[]> = {
     "ai-foundations--tensorrt-jetson-latency",
     "ai-foundations--ros-image-inference-node",
   ],
-  "v2-part-6-ros2": [
+  "v2-part-6-physical-ai": [
+    "llm-engineering--prompt-design",
+    "llm-engineering--tool-calling-contract",
+    "llm-engineering--retrieval-context",
+    "llm-engineering--chunking-embedding-eval",
+    "llm-engineering--eval-harness",
+    "llm-engineering--agent-trace-debugging",
+  ],
+  "v2-part-7-ros2-cpp": [
+    "cpp-python-ros2--cpp-structure",
+    "cpp-python-ros2--cmake-package-dependencies",
+    "cpp-python-ros2--eigen-opencv-bindings",
     "cpp-python-ros2--ros2-system",
     "cpp-python-ros2--ros2-pubsub-cpp-python",
     "cpp-python-ros2--ros2-parameters-launch",
@@ -344,22 +413,12 @@ const legacySectionIdsByPartId: Record<string, string[]> = {
     "cpp-python-ros2--experiment-logging",
     "cpp-python-ros2--rosbag-foxglove-plotjuggler",
   ],
-  "v2-part-7-physical-ai": [
-    "llm-engineering--prompt-design",
-    "llm-engineering--tool-calling-contract",
-    "llm-engineering--retrieval-context",
-    "llm-engineering--chunking-embedding-eval",
-    "llm-engineering--eval-harness",
-    "llm-engineering--agent-trace-debugging",
-  ],
-  "v2-part-8-safety-system": [
+  "v2-part-8-safety-integration": [
     "realtime--loop-latency",
     "realtime--executor-qos",
     "safety-control-fusion-eval--safety-monitor",
     "safety-control-fusion-eval--advanced-control",
     "safety-control-fusion-eval--evaluation-regression",
-  ],
-  "v2-part-9-integration-projects": [
     "jetrover-vs-sim--hardware-scope",
     "jetrover-vs-sim--simulation-sweep",
     "recommended-stack--arm-stack",
@@ -370,7 +429,7 @@ const legacySectionIdsByPartId: Record<string, string[]> = {
     "final-loop--python-cpp-ros-loop",
     "final-loop--log-evaluate",
   ],
-  "v2-part-10-final-exam": [
+  "v2-part-9-final-exam": [
     "overview-core--concept-map",
     "overview-core--capability-criteria",
     "minimum-done--arm-check",

@@ -55,6 +55,13 @@ function App() {
   );
 
   const allSections = useMemo(() => curriculum.flatMap((m) => m.sections), []);
+  const completedSectionCount = useMemo(
+    () => allSections.filter((section) => progress.completedSections[section.id]).length,
+    [allSections, progress.completedSections],
+  );
+  const totalCompletion = Math.round((completedSectionCount / allSections.length) * 100);
+  const currentModuleDone = currentModule.sections.filter((section) => progress.completedSections[section.id]).length;
+  const currentModuleCompletion = Math.round((currentModuleDone / currentModule.sections.length) * 100);
   const currentSectionIndex = useMemo(
     () => allSections.findIndex((section) => section.id === currentSection.id),
     [allSections, currentSection.id],
@@ -208,12 +215,7 @@ function App() {
     }
   };
 
-  const dismissOnboarding = useCallback(() => {
-    window.localStorage.setItem(onboardingKey, "1");
-    setShowOnboarding(false);
-  }, []);
-
-  const jumpToFirstMatch = useCallback(
+  const navigateToFirstMatch = useCallback(
     (predicate: (sectionId: string, title: string, moduleTitle: string) => boolean) => {
       for (const module of curriculum) {
         const section = module.sections.find((candidate) => predicate(candidate.id, candidate.title, module.title));
@@ -224,9 +226,21 @@ function App() {
           break;
         }
       }
+    },
+    [],
+  );
+
+  const dismissOnboarding = useCallback(() => {
+    window.localStorage.setItem(onboardingKey, "1");
+    setShowOnboarding(false);
+  }, []);
+
+  const jumpToFirstMatch = useCallback(
+    (predicate: (sectionId: string, title: string, moduleTitle: string) => boolean) => {
+      navigateToFirstMatch(predicate);
       dismissOnboarding();
     },
-    [dismissOnboarding],
+    [dismissOnboarding, navigateToFirstMatch],
   );
 
   // Keyboard shortcuts
@@ -380,6 +394,153 @@ function App() {
           </div>
         </header>
 
+        <div className="beginner-guide-banner">
+          <div className="banner-icon">💡</div>
+          <div className="banner-text">
+            <strong>무엇부터 시작해야 할지 모르시겠나요?</strong>
+            <span>Physical AI Lab이 처음이시라면 아래 로드맵의 <strong>[기초수학]</strong>부터 차근차근 시작해보세요.</span>
+          </div>
+          <button
+            className="primary-button"
+            onClick={() =>
+              navigateToFirstMatch((id, title) =>
+                id.includes("vector_matrix_inverse") || id.includes("laplace") || title.includes("기초"),
+              )
+            }
+            type="button"
+          >
+            입문자 가이드 시작
+          </button>
+        </div>
+
+        <section className="study-roadmap" aria-label="전체 학습 로드맵">
+          <div className="roadmap-intro">
+            <div>
+              <div className="eyebrow">
+                <Compass size={16} aria-hidden />
+                Physical AI 학습 경로
+              </div>
+              <h2>수학 → 로봇수학 → 제어 → 자율주행 → AI/VLA → 실전 프로젝트</h2>
+              <p>
+                목적별 진입점을 고르거나 아래 Part 로드맵에서 현재 위치와 완료율을 확인할 수 있습니다.
+              </p>
+            </div>
+            <div className="mobile-progress-summary" aria-label="전체 진행률 요약">
+              <strong>{totalCompletion}%</strong>
+              <span>
+                전체 {completedSectionCount}/{allSections.length} · 현재 Part {currentModuleCompletion}%
+              </span>
+            </div>
+          </div>
+
+          <div className="goal-presets" aria-label="목표별 빠른 시작">
+            <button className="goal-preset" onClick={() => selectModule(curriculum[0].id)} type="button">
+              <BookOpen size={18} aria-hidden />
+              <span>
+                <strong>전체</strong>
+                <small>Part 1부터</small>
+              </span>
+            </button>
+            <button
+              className="goal-preset"
+              onClick={() =>
+                navigateToFirstMatch((id, title) =>
+                  id.includes("vector_matrix_inverse") || id.includes("laplace") || title.includes("기초"),
+                )
+              }
+              type="button"
+            >
+              <Compass size={18} aria-hidden />
+              <span>
+                <strong>기초수학</strong>
+                <small>벡터·행렬부터</small>
+              </span>
+            </button>
+            <button
+              className="goal-preset"
+              onClick={() =>
+                navigateToFirstMatch((id, title) =>
+                  id.includes("fk_matrix_ik_singularity") || id.includes("geometric_vs_analytic") || title.includes("Jacobian"),
+                )
+              }
+              type="button"
+            >
+              <Bot size={18} aria-hidden />
+              <span>
+                <strong>로봇팔</strong>
+                <small>FK/IK/Jacobian</small>
+              </span>
+            </button>
+            <button
+              className="goal-preset"
+              onClick={() => navigateToFirstMatch((id) => id.includes("bicycle_model_stanley") || id.includes("ekf_chi_squared"))}
+              type="button"
+            >
+              <Route size={18} aria-hidden />
+              <span>
+                <strong>자율주행</strong>
+                <small>Stanley/EKF</small>
+              </span>
+            </button>
+            <button
+              className="goal-preset"
+              onClick={() =>
+                navigateToFirstMatch((id, title, moduleTitle) =>
+                  id.includes("ros2_cli_command") || moduleTitle.includes("ROS") || title.includes("ROS"),
+                )
+              }
+              type="button"
+            >
+              <PanelsTopLeft size={18} aria-hidden />
+              <span>
+                <strong>ROS 2</strong>
+                <small>명령어·노드</small>
+              </span>
+            </button>
+            <button
+              className="goal-preset"
+              onClick={() =>
+                navigateToFirstMatch((id, title, moduleTitle) =>
+                  id.includes("dataset_label_split") || moduleTitle.includes("인식 AI") || title.includes("VLM"),
+                )
+              }
+              type="button"
+            >
+              <Cpu size={18} aria-hidden />
+              <span>
+                <strong>AI/VLA</strong>
+                <small>데이터·배포</small>
+              </span>
+            </button>
+          </div>
+
+          <div className="roadmap-steps" aria-label="Part별 완료율">
+            {curriculum.map((module, index) => {
+              const done = module.sections.filter((section) => progress.completedSections[section.id]).length;
+              const percent = Math.round((done / module.sections.length) * 100);
+              const shortTitle = module.title.replace(/^Part\s+\d+\.\s*/, "");
+              return (
+                <button
+                  aria-label={`로드맵 항목 ${index + 1}: ${percent}% 완료`}
+                  className={`roadmap-step ${module.id === selectedModuleId ? "is-active" : ""}`}
+                  key={module.id}
+                  onClick={() => selectModule(module.id)}
+                  type="button"
+                >
+                  <span className="roadmap-index">Part {index + 1}</span>
+                  <strong>{shortTitle}</strong>
+                  <span className="roadmap-meta">
+                    {done}/{module.sections.length} · {percent}%
+                  </span>
+                  <span className="roadmap-bar" aria-hidden>
+                    <span style={{ width: `${percent}%` }} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         <section className="lesson-header">
           <div>
             <span className="lesson-kicker">{currentModule.title}</span>
@@ -438,23 +599,23 @@ function App() {
         </div>
 
         <nav className="session-nav" aria-label="세션 이동">
-          <button className="text-button" disabled={!previousSection} onClick={goPrevSection} type="button">
-            <ArrowLeft size={16} aria-hidden />
-            <span>
-              이전
-              <small>{previousSection?.title ?? "첫 세션"}</small>
-            </span>
+          <button className="nav-step-button" disabled={!previousSection} onClick={goPrevSection} type="button">
+            <ArrowLeft size={20} aria-hidden />
+            <div className="nav-text-block">
+              <small>이전 세션</small>
+              <strong>{previousSection?.title ?? "첫 세션"}</strong>
+            </div>
           </button>
           <div className="session-nav-progress">
             <strong>{currentSectionIndex + 1}</strong>
             <span>/ {allSections.length}</span>
           </div>
-          <button className="text-button" disabled={!nextSection} onClick={goNextSection} type="button">
-            <span>
-              다음
-              <small>{nextSection?.title ?? "마지막 세션"}</small>
-            </span>
-            <ArrowRight size={16} aria-hidden />
+          <button className="nav-step-button is-next" disabled={!nextSection} onClick={goNextSection} type="button">
+            <div className="nav-text-block">
+              <small>다음 세션</small>
+              <strong>{nextSection?.title ?? "마지막 세션"}</strong>
+            </div>
+            <ArrowRight size={20} aria-hidden />
           </button>
         </nav>
       </main>

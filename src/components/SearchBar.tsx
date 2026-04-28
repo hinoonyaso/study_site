@@ -15,6 +15,7 @@ type SearchResult = {
   sectionId?: string;
   sectionTitle: string;
   matchContext: string;
+  isTitleMatch: boolean;
   url?: string;
 };
 
@@ -70,6 +71,7 @@ export function SearchBar({ modules, onSelect }: SearchBarProps) {
             sectionId: section.id,
             sectionTitle: section.title,
             matchContext,
+            isTitleMatch: section.title.toLowerCase().includes(q) || (section.groupTitle?.toLowerCase().includes(q) ?? false),
           });
         }
         if (hits.length >= 15) break;
@@ -100,6 +102,7 @@ export function SearchBar({ modules, onSelect }: SearchBarProps) {
         moduleTitle: `${source.domain} · ${source.sourceType}`,
         sectionTitle: source.title,
         matchContext: (start > 0 ? "…" : "") + searchable.slice(start, end).trim() + (end < searchable.length ? "…" : ""),
+        isTitleMatch: source.title.toLowerCase().includes(q),
         url: source.url,
       });
     }
@@ -141,7 +144,7 @@ export function SearchBar({ modules, onSelect }: SearchBarProps) {
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          placeholder="검색 (Jacobian, EKF, …)"
+          placeholder="세션 제목, 개념 검색 (예: Jacobian, EKF)"
           type="search"
           value={query}
         />
@@ -160,7 +163,14 @@ export function SearchBar({ modules, onSelect }: SearchBarProps) {
               onClick={() => handleSelect(r)}
               type="button"
             >
-              <span className="search-module">{r.moduleTitle}</span>
+              <span className="search-module">
+                {r.moduleTitle}
+                {r.kind !== "source" && (
+                  <span className={`search-badge ${r.isTitleMatch ? "badge-title" : "badge-content"}`}>
+                    {r.isTitleMatch ? "제목 매칭" : "내용 매칭"}
+                  </span>
+                )}
+              </span>
               <strong>{r.sectionTitle}</strong>
               <small>{r.kind === "source" ? "공식자료 · 새 탭으로 열기" : r.matchContext}</small>
             </button>

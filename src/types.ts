@@ -214,6 +214,7 @@ export type CodeLab = {
   runCommand: string;
   commonBugs: string[];
   extensionTask: string;
+  colabLink?: string;
 };
 
 export type QuizQuestionTypeV2 =

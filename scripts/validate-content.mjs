@@ -3,11 +3,15 @@ import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
 
-const source = fs.readFileSync("src/data/curriculumV2.ts", "utf8");
-const legacySource = fs.readFileSync("src/data/curriculum.ts", "utf8");
+const source = fs.readFileSync("src/data/core/curriculumV2.ts", "utf8");
+const legacySource = fs.readFileSync("src/data/legacy/legacySections.ts", "utf8");
 const types = fs.readFileSync("src/types.ts", "utf8");
 const packageJson = fs.readFileSync("package.json", "utf8");
 const readmeSource = fs.readFileSync("readme.md", "utf8");
+const pyodideRunnerSource = fs.readFileSync("src/utils/pyodideRunner.ts", "utf8");
+const executableLabSource = fs.readFileSync("src/components/ExecutableLab.tsx", "utf8");
+const pytorchBCSource = fs.readFileSync("src/data/vision_ai/pytorchBCSessions.ts", "utf8");
+const promptContextHarnessSource = fs.readFileSync("src/data/eval_deployment/promptContextHarnessSessions.ts", "utf8");
 const moduleCache = new Map();
 
 const loadTsModule = (filePath) => {
@@ -40,7 +44,7 @@ const loadTsModule = (filePath) => {
   return module.exports;
 };
 
-const curriculumModule = loadTsModule("src/data/curriculumV2.ts");
+const curriculumModule = loadTsModule("src/data/core/curriculumV2.ts");
 const curriculum = curriculumModule.curriculum;
 const allSections = curriculum.flatMap((item) => item.sections);
 const sections = allSections.filter((section) => !section.v2Session);
@@ -51,8 +55,9 @@ const finalImprovementRoadmap = curriculumModule.finalImprovementRoadmap;
 const contentQualityRemediationChecklist = curriculumModule.contentQualityRemediationChecklist;
 const mathFoundationAuditChecklist = curriculumModule.mathFoundationAuditChecklist;
 const physicalAICoreAuditChecklist = curriculumModule.physicalAICoreAuditChecklist;
+const promptContextHarnessFeatureAudit = curriculumModule.promptContextHarnessFeatureAudit;
 const structuralQualityRemediationChecklist = curriculumModule.structuralQualityRemediationChecklist;
-const sourceCatalog = loadTsModule("src/data/sourceCatalog.ts").sourceCatalog;
+const sourceCatalog = loadTsModule("src/data/core/sourceCatalog.ts").sourceCatalog;
 const failed = [];
 
 const assert = (name, ok, detail = "") => {
@@ -86,7 +91,7 @@ assert(
     types.includes("readingGuide") &&
     types.includes("sourceIds?: string[]"),
 );
-assert("section expansion enabled", legacySource.includes("microTopicsBySection") && legacySource.includes("flatMap(expandSections)"));
+assert("legacy sections extracted into data module", legacySource.includes("export const legacySections") && sections.length >= 75);
 assert("mini graph component", fs.existsSync("src/components/MiniGraph.tsx"));
 assert("executable lab component", fs.existsSync("src/components/ExecutableLab.tsx"));
 assert("KaTeX renderer", fs.existsSync("src/components/KatexRenderer.tsx"));
@@ -275,7 +280,86 @@ assert(
 );
 assert(
   "prompt/context/eval harness has its own curriculum part",
-  curriculum.some((module) => module.id === "v2-part-11-prompt-context-harness" && module.sections.length > 0),
+  curriculum.some((module) => module.id === "v2-part-10-prompt-context-harness" && module.sections.length > 0),
+);
+const promptContextHarnessPart = curriculum.find((module) => module.id === "v2-part-10-prompt-context-harness");
+const requiredPromptHarnessFeatures = [
+  "프롬프트 템플릿",
+  "역할/목표/제약/출력형식",
+  "few-shot",
+  "JSON/YAML 출력 강제",
+  "hallucination 줄이기",
+  "context window / chunking",
+  "retrieval / grounding",
+  "evaluation harness",
+  "golden output 비교",
+  "latency logging / tracing",
+];
+const promptHarnessAuditFeatures = new Set((promptContextHarnessFeatureAudit ?? []).map((row) => row.feature));
+assert(
+  "prompt/context/harness audit covers requested feature table",
+  Array.isArray(promptContextHarnessFeatureAudit) &&
+    requiredPromptHarnessFeatures.every((feature) => promptHarnessAuditFeatures.has(feature)),
+  requiredPromptHarnessFeatures.filter((feature) => !promptHarnessAuditFeatures.has(feature)).join(", "),
+);
+const promptHarnessEvidenceSessionIds = (promptContextHarnessFeatureAudit ?? []).flatMap(
+  (row) => row.evidenceSessionIds ?? [],
+);
+const promptHarnessEvidenceLabIds = (promptContextHarnessFeatureAudit ?? []).flatMap((row) => row.evidenceLabIds ?? []);
+const v2CodeLabIds = new Set(v2Sessions.flatMap((session) => session.codeLabs.map((lab) => lab.id)));
+const missingPromptHarnessEvidenceSessions = promptHarnessEvidenceSessionIds.filter((id) => !v2SessionIds.has(id));
+const missingPromptHarnessEvidenceLabs = promptHarnessEvidenceLabIds.filter((id) => !v2CodeLabIds.has(id));
+assert(
+  "prompt/context/harness audit evidence sessions exist",
+  missingPromptHarnessEvidenceSessions.length === 0 &&
+    Boolean(promptContextHarnessPart) &&
+    promptHarnessEvidenceSessionIds.every((id) => promptContextHarnessPart.sections.some((section) => section.id === id)),
+  missingPromptHarnessEvidenceSessions.join(", "),
+);
+assert(
+  "prompt/context/harness audit evidence labs exist",
+  missingPromptHarnessEvidenceLabs.length === 0,
+  missingPromptHarnessEvidenceLabs.join(", "),
+);
+assert(
+  "prompt/context/harness examples practice eval and logs are explicit",
+  promptContextHarnessSource.includes("selected_example_ids") &&
+    promptContextHarnessSource.includes("context_tokens") &&
+    promptContextHarnessSource.includes("retrieved_chunk_ids") &&
+    promptContextHarnessSource.includes("eval_run_id") &&
+    promptContextHarnessSource.includes("golden_id") &&
+    promptContextHarnessSource.includes("trace_id") &&
+    promptContextHarnessSource.includes("latency") &&
+    promptContextHarnessSource.includes("schema_ok"),
+);
+const aiDeploymentPipelineSessionIds = [
+  "pytorch_bc_onnx_export_contract",
+  "onnxruntime_cpp_policy_inference",
+  "ros2_image_inference_latency_node",
+];
+const aiDeploymentPart = curriculum.find((module) => module.id === "v2-part-11-ai-deployment-pipeline");
+assert(
+  "AI deployment pipeline has dedicated ONNX to C++ to ROS 2 part",
+  Boolean(aiDeploymentPart) &&
+    aiDeploymentPipelineSessionIds.every((id) => aiDeploymentPart.sections.some((section) => section.id === id)),
+  aiDeploymentPart?.sections.map((section) => section.id).join(", "),
+);
+assert(
+  "PyTorch BC links forward into ONNX export deployment chain",
+  pytorchBCSource.includes("pytorch_bc_onnx_export_contract") &&
+    aiDeploymentPipelineSessionIds.every((id) => v2SessionIds.has(id)),
+  aiDeploymentPipelineSessionIds.filter((id) => !v2SessionIds.has(id)).join(", "),
+);
+assert(
+  "browser Python runner supports SciPy/Matplotlib with explicit unsupported-package messaging",
+  pyodideRunnerSource.includes("\"scipy\"") &&
+    pyodideRunnerSource.includes("\"matplotlib\"") &&
+    pyodideRunnerSource.includes("getBrowserPythonSupport") &&
+    pyodideRunnerSource.includes("unsupportedImports") &&
+    pyodideRunnerSource.includes("Python 실행 시간이") &&
+    executableLabSource.includes("JS_LAB_TIMEOUT_MS = 5_000") &&
+    packageJson.includes("\"pyodide\"") &&
+    packageJson.includes("vendor-pyodide"),
 );
 assert(
   "six-stage reinforcement roadmap is exported",
@@ -298,7 +382,7 @@ assert(
   missingRoadmapVisualizations.join(", "),
 );
 const roadmapText = JSON.stringify(finalImprovementRoadmap ?? []);
-const finalImprovementSource = fs.readFileSync("src/data/finalImprovementSessions.ts", "utf8");
+const finalImprovementSource = fs.readFileSync("src/data/eval_deployment/finalImprovementSessions.ts", "utf8");
 assert(
   "six-stage roadmap includes requested concrete labs",
   roadmapText.includes("scipy.stats.chi2.ppf") &&
@@ -438,7 +522,7 @@ assert(
   laplaceBodeVisual?.parameters.some((parameter) => parameter.name === "phase_margin_target"),
   laplaceBodeVisual?.parameters.map((parameter) => parameter.name).join(", "),
 );
-const criticalGapSource = fs.readFileSync("src/data/criticalGapSessions.ts", "utf8");
+const criticalGapSource = fs.readFileSync("src/data/gap_reinforcement/criticalGapSessions.ts", "utf8");
 assert(
   "TensorRT contract lab clearly marked as CPU mock with GPU deployment guide",
   criticalGapSource.includes("CPU mock") &&
@@ -563,19 +647,21 @@ assert(
   weakCatalogSpecs.map((visualization) => visualization.id).slice(0, 4).join(", "),
 );
 [
-  "src/data/mathFoundationSessions.ts",
-  "src/data/robotMathSessions.ts",
-  "src/data/dynamicsControlSessions.ts",
-  "src/data/autonomousDrivingSessions.ts",
-  "src/data/robotVisionSessions.ts",
-  "src/data/ros2Sessions.ts",
-  "src/data/physicalAISessions.ts",
-  "src/data/safetySystemSessions.ts",
-  "src/data/integrationProjectSessions.ts",
-  "src/data/finalExamQuestions.ts",
-  "src/data/remainingGapSessions.ts",
-  "src/data/finalImprovementSessions.ts",
-  "src/data/structuralImprovementSessions.ts",
+  "src/data/math/mathFoundationSessions.ts",
+  "src/data/robotics/robotMathSessions.ts",
+  "src/data/robotics/dynamicsControlSessions.ts",
+  "src/data/autonomy/autonomousDrivingSessions.ts",
+  "src/data/vision_ai/robotVisionSessions.ts",
+  "src/data/ros2/ros2Sessions.ts",
+  "src/data/eval_deployment/physicalAISessions.ts",
+  "src/data/eval_deployment/safetySystemSessions.ts",
+  "src/data/eval_deployment/integrationProjectSessions.ts",
+  "src/data/eval_deployment/finalExamQuestions.ts",
+  "src/data/gap_reinforcement/remainingGapSessions.ts",
+  "src/data/eval_deployment/finalImprovementSessions.ts",
+  "src/data/gap_reinforcement/structuralImprovementSessions.ts",
+  "src/data/eval_deployment/promptContextHarnessSessions.ts",
+  "src/data/eval_deployment/aiDeploymentPipelineSessions.ts",
 ].forEach((file) => assert(`v2 data file exists: ${file}`, fs.existsSync(file)));
 
 const coreQuizTypes = [

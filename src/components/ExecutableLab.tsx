@@ -14,7 +14,9 @@ type WorkerMessage =
   | { type: "done"; logs: string[]; result: unknown; elapsedMs: number }
   | { type: "error"; logs: string[]; error: string; elapsedMs: number };
 
-const runInWorker = (code: string, timeoutMs = 1200) =>
+const JS_LAB_TIMEOUT_MS = 5_000;
+
+const runInWorker = (code: string, timeoutMs = JS_LAB_TIMEOUT_MS) =>
   new Promise<WorkerMessage>((resolve) => {
     const workerSource = `
       self.onmessage = (event) => {
@@ -158,7 +160,7 @@ export function ExecutableLab({ section }: { section: LessonSection }) {
         <div>
           <strong>실행 가능한 JS 알고리즘 실습</strong>
           <span>
-            Web Worker에서 1200ms timeout으로 실행 · 기대 결과 {section.cppPractice.expectedResultShape ?? "JSON"}
+            Web Worker에서 {JS_LAB_TIMEOUT_MS}ms timeout으로 실행 · 기대 결과 {section.cppPractice.expectedResultShape ?? "JSON"}
           </span>
         </div>
         <div className="code-actions">

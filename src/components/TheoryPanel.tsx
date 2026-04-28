@@ -1,5 +1,5 @@
 import { BookMarked, Check, ExternalLink, FunctionSquare, Lightbulb, ListChecks, Target } from "lucide-react";
-import { getSources } from "../data/sources";
+import { getSources } from "../data/core/sources";
 import { ConceptTheoryBlock } from "./ConceptTheoryBlock";
 import { EquationDerivationBlock } from "./EquationDerivationBlock";
 import { HandCalculationBlock } from "./HandCalculationBlock";

@@ -1666,10 +1666,9 @@ function VisualizationSpecInteractiveCard({ spec }: { spec: VisualizationSpec })
   );
 }
 
-function VisualizationSpecCards({ section, availableIds }: { section: LessonSection, availableIds: string[] }) {
+function VisualizationSpecCards({ section }: { section: LessonSection }) {
   const specs = section.v2Session?.visualizations ?? [];
-  const implementedSpecs = specs.filter(spec => availableIds.includes(spec.id));
-  if (implementedSpecs.length === 0) return null;
+  if (specs.length === 0) return null;
   return (
     <section className="panel visual-panel">
       <div className="panel-heading">
@@ -1677,7 +1676,7 @@ function VisualizationSpecCards({ section, availableIds }: { section: LessonSect
         <h2>시각화 연결 정보</h2>
       </div>
       <div className="cheat-grid">
-        {implementedSpecs.map((spec) => <VisualizationSpecInteractiveCard key={spec.id} spec={spec} />)}
+        {specs.map((spec) => <VisualizationSpecInteractiveCard key={spec.id} spec={spec} />)}
       </div>
     </section>
   );
@@ -1968,7 +1967,7 @@ export function VisualizerHub({ id, section }: VisualizerHubProps) {
     return (
       <div className="visual-stack">
         {visualizer}
-        <VisualizationSpecCards section={section} availableIds={Object.keys(visualizers)} />
+        <VisualizationSpecCards section={section} />
       </div>
     );
   }

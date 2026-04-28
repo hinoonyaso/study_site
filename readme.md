@@ -7,6 +7,7 @@ ROS 2 Humble + Ubuntu 22.04 기준의 Physical AI 학습 PDF를 바탕으로 만
 - PDF의 13개 큰 섹션을 커리큘럼 모듈로 구성
 - 이론, C++/Python 실습, 시험/퀴즈, 브라우저 시각화 탭 제공
 - 로봇팔 FK/IK, differential drive odometry, A*, Pure Pursuit, Kalman Filter, confusion matrix, latency, parameter sweep 시각화
+- 브라우저 Python 실행은 NumPy, SciPy, Matplotlib을 자동 로드하고 PyTorch/ONNX/OpenCV/ROS 2 코드는 로컬/Colab 실행으로 명확히 안내
 - 진행도, 퀴즈 최고점, 체크리스트를 브라우저 `localStorage`에 저장
 
 ## PDF 대비 구현 범위
@@ -81,6 +82,13 @@ ROS 2 Humble + Ubuntu 22.04 기준의 Physical AI 학습 PDF를 바탕으로 만
 - `criticalGapSessions.ts`의 7종 기본 퀴즈 답변을 세션별 전용 답변으로 교체해 템플릿 암기형 약점을 제거
 - 시각화 카탈로그를 48개, 각 3개 파라미터와 3개 해석 질문으로 확장하고 v2 시각화 스펙 카드에 실제 슬라이더 기반 인터랙션 추가
 - `validate-content.mjs`가 남은 약점 세션, 세션별 quiz specificity, multi-parameter visualization, interactive spec renderer를 자동 검증
+
+## v10 실행환경·배포·하네스 공백 폐쇄
+
+- Pyodide 러너를 보강해 SciPy/Matplotlib import를 자동 감지하고, 무출력/미지원 패키지/timeout 상황을 학습자에게 명확히 표시
+- Part 10을 독립 커리큘럼으로 분리해 prompt template, 역할/목표/제약/출력형식, few-shot, JSON/YAML 강제, hallucination guardrail, context window/chunking, retrieval/grounding, eval harness, golden output 비교, latency tracing을 학습
+- Part 11에 `ONNX → ONNX Runtime C++ → ROS 2 image inference node` 배포 파이프라인 세션 추가
+- `validate-content.mjs`가 PyTorch BC 이후 ONNX export 연결, AI 배포 파트, Prompt/Context/Harness 기능 audit/evidence, 브라우저 Python 런타임 지원 범위를 자동 검증
 
 ## 실행
 

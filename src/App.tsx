@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -25,18 +25,21 @@ import { SourceCatalogPanel } from "./components/SourceCatalogPanel";
 import { StatsPanel } from "./components/StatsPanel";
 import { TheoryPanel } from "./components/TheoryPanel";
 import { ThemeToggle, useTheme } from "./components/ThemeToggle";
-import { VisualizerHub } from "./components/visualizers/VisualizerHub";
+const VisualizerHub = lazy(() => import("./components/visualizers/VisualizerHub").then(module => ({ default: module.VisualizerHub })));
 import { WrongAnswerNote } from "./components/WrongAnswerNote";
-import { curriculum } from "./data/curriculumV2";
+import { curriculum } from "./data/core/curriculumV2";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { ProgressProvider, useProgress } from "./contexts/ProgressContext";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { emptyProgress, type ProgressState, type SrsCard, type WrongAnswerEntry } from "./types";
 
 const storageKey = "physical-ai-study-progress-v1";
 const onboardingKey = "physical-ai-onboarding-seen-v1";
 
-function App() {
-  const [progress, setProgress] = useLocalStorage<ProgressState>(storageKey, emptyProgress);
+function AppContent() {
+  const { progress, isLoaded, logStudy, toggleSection, toggleChecklist, saveUserCode, saveQuizAnswer, resetQuizAnswers, saveQuizScore, saveNote, updateSrsCard, recordWrongAnswers, clearWrongAnswers, resetProgress, overwriteProgress } = useProgress();
+
+  if (!isLoaded) return <div className="app-shell" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>데이터 불러오는 중...</div>;
   const [selectedModuleId, setSelectedModuleId] = useState(curriculum[0].id);
   const [selectedSectionId, setSelectedSectionId] = useState(curriculum[0].sections[0].id);
   const [activeTab, setActiveTab] = useState<ActiveTab>("theory");
@@ -74,145 +77,6 @@ function App() {
     setSelectedModuleId(nextModule.id);
     setSelectedSectionId(nextModule.sections[0].id);
     setActiveTab("theory");
-  };
-
-  const logStudy = useCallback((sectionId: string, durationMs = 0) => {
-    const today = new Date().toISOString().slice(0, 10);
-    setProgress((prev) => ({
-      ...prev,
-      studyLog: [...(prev.studyLog ?? []), { date: today, sectionId, durationMs }],
-    }));
-  }, [setProgress]);
-
-  useEffect(() => {
-    const previous = visitRef.current;
-    if (previous.sectionId !== selectedSectionId) {
-      const durationMs = Date.now() - previous.startedAt;
-      if (durationMs > 5000) logStudy(previous.sectionId, durationMs);
-      visitRef.current = { sectionId: selectedSectionId, startedAt: Date.now() };
-    }
-  }, [logStudy, selectedSectionId]);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [selectedSectionId]);
-
-  const toggleSection = (sectionId: string) => {
-    setProgress((prev) => ({
-      ...prev,
-      completedSections: {
-        ...prev.completedSections,
-        [sectionId]: !prev.completedSections[sectionId],
-      },
-    }));
-    logStudy(sectionId);
-  };
-
-  const toggleChecklist = (sectionId: string, itemIndex: number) => {
-    setProgress((prev) => ({
-      ...prev,
-      checklist: {
-        ...prev.checklist,
-        [sectionId]: {
-          ...(prev.checklist[sectionId] ?? {}),
-          [itemIndex]: !(prev.checklist[sectionId] ?? {})[itemIndex],
-        },
-      },
-    }));
-  };
-
-  const saveUserCode = (sectionId: string, language: "cpp" | "python", code: string) => {
-    setProgress((prev) => ({
-      ...prev,
-      userCode: {
-        ...(prev.userCode ?? {}),
-        [sectionId]: {
-          ...((prev.userCode ?? {})[sectionId] ?? {}),
-          [`${sectionId}:${language}`]: code,
-        },
-      },
-    }));
-  };
-
-  const saveQuizAnswer = (sectionId: string, questionId: string, answer: string) => {
-    setProgress((prev) => ({
-      ...prev,
-      quizAnswers: {
-        ...(prev.quizAnswers ?? {}),
-        [sectionId]: {
-          ...((prev.quizAnswers ?? {})[sectionId] ?? {}),
-          [questionId]: answer,
-        },
-      },
-    }));
-  };
-
-  const resetQuizAnswers = (sectionId: string) => {
-    setProgress((prev) => {
-      const nextAnswers = { ...(prev.quizAnswers ?? {}) };
-      delete nextAnswers[sectionId];
-      return {
-        ...prev,
-        quizAnswers: nextAnswers,
-      };
-    });
-  };
-
-  const saveQuizScore = (sectionId: string, score: number) => {
-    const today = new Date().toISOString().slice(0, 10);
-    setProgress((prev) => ({
-      ...prev,
-      quizScores: {
-        ...prev.quizScores,
-        [sectionId]: Math.max(prev.quizScores[sectionId] ?? 0, score),
-      },
-      quizHistory: [...(prev.quizHistory ?? []), { date: today, sectionId, score }],
-    }));
-    logStudy(sectionId);
-  };
-
-  const saveNote = useCallback((sectionId: string, note: string) => {
-    setProgress((prev) => ({
-      ...prev,
-      notes: {
-        ...(prev.notes ?? {}),
-        [sectionId]: note,
-      },
-    }));
-  }, [setProgress]);
-
-  const updateSrsCard = useCallback((cardId: string, card: SrsCard) => {
-    setProgress((prev) => ({
-      ...prev,
-      srsCards: {
-        ...(prev.srsCards ?? {}),
-        [cardId]: card,
-      },
-    }));
-  }, [setProgress]);
-
-  const recordWrongAnswers = useCallback((entries: WrongAnswerEntry[]) => {
-    if (entries.length === 0) return;
-    setProgress((prev) => ({
-      ...prev,
-      wrongAnswers: Array.from(
-        new Map(
-          [...(prev.wrongAnswers ?? []), ...entries]
-            .slice(-300)
-            .map((entry) => [`${entry.date}:${entry.sectionId}:${entry.questionId}:${entry.myAnswer}`, entry]),
-        ).values(),
-      ).slice(-250),
-    }));
-  }, [setProgress]);
-
-  const resetProgress = () => {
-    const ok = window.confirm("저장된 진행도와 퀴즈 점수를 초기화할까요?");
-    if (ok) {
-      Object.keys(window.localStorage)
-        .filter((key) => key.startsWith("physical-ai-js-lab:"))
-        .forEach((key) => window.localStorage.removeItem(key));
-      setProgress(emptyProgress);
-    }
   };
 
   const navigateToFirstMatch = useCallback(
@@ -594,7 +458,11 @@ function App() {
                 section={currentSection}
               />
             )}
-            {activeTab === "visual" && <VisualizerHub id={currentSection.visualizerId} section={currentSection} />}
+            {activeTab === "visual" && (
+              <Suspense fallback={<div className="loading-state" style={{ padding: "2rem", textAlign: "center" }}>시각화 도구를 불러오는 중...</div>}>
+                <VisualizerHub id={currentSection.visualizerId} section={currentSection} />
+              </Suspense>
+            )}
           </div>
         </div>
 
@@ -625,7 +493,7 @@ function App() {
           currentModule={currentModule}
           currentSection={currentSection}
           modules={curriculum}
-          onImport={setProgress}
+          onImport={overwriteProgress}
           onReset={resetProgress}
           onToggleChecklist={toggleChecklist}
           onToggleSection={toggleSection}
@@ -640,4 +508,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ProgressProvider>
+      <AppContent />
+    </ProgressProvider>
+  );
+}

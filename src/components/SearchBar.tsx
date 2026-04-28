@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
-import { sourceCatalog } from "../data/sourceCatalog";
+import { sourceCatalog } from "../data/core/sourceCatalog";
 import type { CurriculumModule } from "../types";
 
 type SearchBarProps = {

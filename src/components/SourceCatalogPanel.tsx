@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, Library, Search } from "lucide-react";
-import { sourceCatalog, sourceCatalogDomains } from "../data/sourceCatalog";
+import { sourceCatalog, sourceCatalogDomains } from "../data/core/sourceCatalog";
 import type { LessonSection } from "../types";
 
 type SourceCatalogPanelProps = {

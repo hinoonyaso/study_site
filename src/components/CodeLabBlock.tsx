@@ -3,7 +3,8 @@ import CodeMirror from "@uiw/react-codemirror";
 import { python as pythonLanguage } from "@codemirror/lang-python";
 import { Bug, Check, CheckCircle2, Code2, Copy, ExternalLink, Loader2, Play, Terminal, TestTube2 } from "lucide-react";
 import type { CodeLab } from "../types";
-import { runPython, isPyodideLoaded } from "../utils/pyodideRunner";
+import { getBrowserPythonSupport, runPython, isPyodideLoaded } from "../utils/pyodideRunner";
+import type { PythonRunResult } from "../utils/pyodideRunner";
 import { openInGodbolt } from "../utils/godboltLink";
 
 const tabs = [
@@ -25,12 +26,14 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
   // Python 실행 상태
   const [editableCode, setEditableCode] = useState(lab.starterCode);
   const [isRunning, setIsRunning] = useState(false);
-  const [runOutput, setRunOutput] = useState<{ stdout: string; stderr: string } | null>(null);
+  const [runOutput, setRunOutput] = useState<PythonRunResult | null>(null);
 
   // C++ Godbolt 상태
   const [godboltStatus, setGodboltStatus] = useState<"idle" | "loading" | "copied">("idle");
 
   const code = activeTab === "starter" ? lab.starterCode : activeTab === "solution" ? lab.solutionCode : lab.testCode;
+  const codeToRun = activeTab === "starter" ? editableCode : code;
+  const browserPythonSupport = lab.language === "python" ? getBrowserPythonSupport(codeToRun) : null;
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(code);
@@ -42,7 +45,6 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
     setIsRunning(true);
     setRunOutput(null);
     try {
-      const codeToRun = activeTab === "starter" ? editableCode : activeTab === "solution" ? lab.solutionCode : lab.testCode;
       const result = await runPython(codeToRun);
       setRunOutput(result);
     } finally {
@@ -63,6 +65,15 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
       : false;
 
   const isFirstLoad = !isPyodideLoaded();
+
+  const needsGpu = lab.language === "python" && (
+    lab.starterCode.includes("import torch") ||
+    lab.starterCode.includes("transformers") ||
+    lab.starterCode.includes("tensorrt") ||
+    lab.starterCode.includes("cuda") ||
+    lab.starterCode.includes("onnx") ||
+    lab.starterCode.includes("llava")
+  );
 
   return (
     <section className="practice-block code-lab-card">
@@ -92,12 +103,6 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
             {copied ? "복사됨" : "복사"}
           </button>
           {lab.language === "python" && (() => {
-            const needsGpu = lab.starterCode.includes("import torch") || 
-                             lab.starterCode.includes("transformers") || 
-                             lab.starterCode.includes("tensorrt") || 
-                             lab.starterCode.includes("cuda") || 
-                             lab.starterCode.includes("onnx") ||
-                             lab.starterCode.includes("llava");
             const colabUrl = lab.colabLink || (needsGpu ? "https://colab.research.google.com/" : undefined);
             if (!colabUrl) return null;
             return (
@@ -111,22 +116,29 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
               </button>
             );
           })()}
-          {lab.language === "python" && (
-            <button
-              className="icon-button text-button run-button"
-              disabled={isRunning}
-              onClick={handleRunPython}
-              type="button"
-            >
-              {isRunning ? <Loader2 size={15} className="spin" aria-hidden /> : <Play size={15} aria-hidden />}
-              {isRunning ? (isFirstLoad ? "초기화 중..." : "실행 중...") : "브라우저에서 실행"}
-            </button>
+          {lab.language === "python" && !needsGpu && (
+            browserPythonSupport?.supported ? (
+              <button
+                className="icon-button text-button run-button"
+                disabled={isRunning}
+                onClick={handleRunPython}
+                type="button"
+              >
+                {isRunning ? <Loader2 size={15} className="spin" aria-hidden /> : <Play size={15} aria-hidden />}
+                {isRunning ? (isFirstLoad ? "Python 환경 초기화 중... (최초 1회, 약 10초)" : "실행 중...") : "브라우저에서 실행"}
+              </button>
+            ) : (
+              <span className="runtime-badge warning" title={browserPythonSupport?.reason}>
+                브라우저 미지원: {browserPythonSupport?.unsupportedImports.join(", ")}
+              </span>
+            )
           )}
           {lab.language === "cpp" && (
             <button
               className="icon-button text-button"
               disabled={godboltStatus === "loading"}
               onClick={handleOpenGodbolt}
+              title="새 탭에서 열립니다"
               type="button"
             >
               {godboltStatus === "loading" ? (
@@ -143,6 +155,11 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
       </div>
 
       {/* Python starter 탭: 편집 가능한 CodeMirror */}
+      {lab.language === "python" && needsGpu && (
+        <div className="hint-box warning" style={{ marginBottom: "12px", borderLeftColor: "#f59e0b", backgroundColor: "rgba(245, 158, 11, 0.1)", display: "flex", alignItems: "center", gap: "8px" }}>
+          <strong>⚠️ 이 코드는 Colab에서 실행하세요</strong>
+        </div>
+      )}
       {lab.language === "python" && activeTab === "starter" ? (
         <CodeMirror
           basicSetup={{ bracketMatching: true, foldGutter: false, highlightActiveLine: true, lineNumbers: true }}
@@ -165,6 +182,10 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
           <div className="run-output-header">
             <Terminal size={14} aria-hidden />
             <span>출력</span>
+            <span>
+              {runOutput.elapsedMs.toFixed(0)}ms
+              {runOutput.loadedPackages.length > 0 ? ` · ${runOutput.loadedPackages.join(", ")}` : ""}
+            </span>
             {outputMatchesExpected && (
               <span className="run-output-match">
                 <CheckCircle2 size={13} aria-hidden /> 기대 출력과 일치
@@ -182,7 +203,10 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
           <h3>실행 가이드</h3>
         </div>
         {lab.language === "python" ? (
-          <p>위 에디터에서 코드를 수정하고 <strong>브라우저에서 실행</strong> 버튼을 누르면 바로 실행됩니다. (numpy 지원)</p>
+          <p>
+            위 에디터에서 코드를 수정하고 <strong>브라우저에서 실행</strong> 버튼을 누르면 Python stdlib, NumPy, SciPy,
+            Matplotlib 실습을 바로 실행합니다. PyTorch, ONNX Runtime, OpenCV, ROS 2 코드는 로컬/Colab 실행을 사용하세요.
+          </p>
         ) : lab.language === "cpp" ? (
           <p>
             <strong>Compiler Explorer</strong> 버튼을 누르면 코드가 클립보드에 복사되고 Eigen 3.4가 설정된 Godbolt로 이동합니다.

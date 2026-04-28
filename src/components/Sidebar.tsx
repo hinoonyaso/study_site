@@ -32,6 +32,7 @@ export function Sidebar({ modules, selectedModuleId, selectedSectionId, onSelect
 
   const toggleModule = (moduleId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    onSelectModule(moduleId);
     setExpandedModules((prev) => {
       const next = new Set(prev);
       if (next.has(moduleId)) next.delete(moduleId);
@@ -104,7 +105,7 @@ export function Sidebar({ modules, selectedModuleId, selectedSectionId, onSelect
                 type="button"
               >
                 <span>{filter}</span>
-                <small>{count}</small>
+                <small>({count}개)</small>
               </button>
             ))}
           </div>

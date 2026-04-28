@@ -10,6 +10,7 @@ type QuizPanelProps = {
   onSaveScore: (score: number) => void;
   savedAnswers: Record<string, string>;
   onSaveAnswer: (questionId: string, answer: string) => void;
+  onReviewTarget?: (target: string) => void;
   onResetAnswers: () => void;
   onRecordWrongAnswers?: (entries: WrongAnswerEntry[]) => void;
 };
@@ -67,6 +68,21 @@ const v2ErrorTypeLabel: Record<QuizQuestionV2["wrongAnswerAnalysis"]["errorType"
   safety_misjudgment: "안전 판단 오류",
 };
 
+const severityLabel: Record<string, string> = {
+  low: "낮음",
+  medium: "보통",
+  high: "높음",
+};
+
+const uniqueTargets = (items: Array<string | undefined>) => [...new Set(items.filter(Boolean))] as string[];
+
+const reviewTargetsForV2Question = (question: QuizQuestionV2) =>
+  uniqueTargets([
+    ...(question.wrongAnswerAnalysis.recommendedReview ?? []),
+    question.wrongAnswerAnalysis.reviewSession,
+    question.conceptTag,
+  ]);
+
 const gradeV2Question = (question: QuizQuestionV2, answer: string) => {
   const normalized = normalizeExpression(answer);
   if (question.choices?.length) return answer.trim() === question.expectedAnswer.trim() ? v2QuestionPoints(question) : 0;
@@ -85,12 +101,14 @@ function QuizPanelV2({
   onSaveScore,
   savedAnswers,
   onSaveAnswer,
+  onReviewTarget,
   onResetAnswers,
   onRecordWrongAnswers,
 }: QuizPanelProps) {
   const questions = section.v2Session?.quizzes ?? [];
   const [answers, setAnswers] = useState<Record<string, string>>(savedAnswers);
   const [submitted, setSubmitted] = useState(false);
+  const [difficultyFilter, setDifficultyFilter] = useState<"all" | QuizQuestionV2["difficulty"]>("all");
   const [retryFilter, setRetryFilter] = useState<{
     conceptTag: string;
     retryTypes: string[];
@@ -101,9 +119,10 @@ function QuizPanelV2({
     setAnswers(savedAnswers);
     setSubmitted(false);
     setRetryFilter(null);
+    setDifficultyFilter("all");
   }, [savedAnswers, section.id]);
 
-  const activeQuestions = useMemo(() => {
+  const retryQuestions = useMemo(() => {
     if (!retryFilter) return questions;
     const retryTypes = new Set(retryFilter.retryTypes);
     const exact = questions.filter(
@@ -122,6 +141,21 @@ function QuizPanelV2({
     const ordered = [...exact, ...sameConcept, ...sameType];
     return ordered.length > 0 ? ordered : questions;
   }, [questions, retryFilter]);
+
+  const activeQuestions = useMemo(() => {
+    if (difficultyFilter === "all") return retryQuestions;
+    return retryQuestions.filter((question) => question.difficulty === difficultyFilter);
+  }, [difficultyFilter, retryQuestions]);
+
+  const difficultyCounts = useMemo(
+    () => ({
+      all: retryQuestions.length,
+      easy: retryQuestions.filter((question) => question.difficulty === "easy").length,
+      medium: retryQuestions.filter((question) => question.difficulty === "medium").length,
+      hard: retryQuestions.filter((question) => question.difficulty === "hard").length,
+    }),
+    [retryQuestions],
+  );
 
   const score = useMemo(() => {
     const earned = activeQuestions.reduce((sum, question) => sum + gradeV2Question(question, answers[question.id] ?? ""), 0);
@@ -155,7 +189,7 @@ function QuizPanelV2({
         conceptTag: question.conceptTag,
         errorType: question.wrongAnswerAnalysis.errorType,
         severity: question.wrongAnswerAnalysis.severity ?? "medium",
-        recommendedReview: question.wrongAnswerAnalysis.recommendedReview ?? [question.wrongAnswerAnalysis.reviewSession],
+        recommendedReview: reviewTargetsForV2Question(question),
         retryPlan: {
           step1: "더 쉬운 수식 해석 문제",
           step2: "손계산 문제",
@@ -211,6 +245,27 @@ function QuizPanelV2({
         </div>
         <div className="score-pill">최고 {bestScore}점</div>
       </div>
+      <div className="quiz-filter-row" aria-label="난이도별 문제 선택">
+        {[
+          ["all", "전체", difficultyCounts.all],
+          ["easy", "쉬운 문제", difficultyCounts.easy],
+          ["medium", "중간 문제", difficultyCounts.medium],
+          ["hard", "어려운 문제", difficultyCounts.hard],
+        ].map(([value, label, count]) => (
+          <button
+            className={difficultyFilter === value ? "is-active" : ""}
+            disabled={count === 0}
+            key={value}
+            onClick={() => {
+              setDifficultyFilter(value as "all" | QuizQuestionV2["difficulty"]);
+              setSubmitted(false);
+            }}
+            type="button"
+          >
+            {label} <span>{count}</span>
+          </button>
+        ))}
+      </div>
       {retryFilter && (
         <div className="hint-box">
           맞춤 재시험 · {retryFilter.conceptTag} · {activeQuestions.length}/{questions.length}문항
@@ -219,6 +274,9 @@ function QuizPanelV2({
             전체 문제로 돌아가기
           </button>
         </div>
+      )}
+      {activeQuestions.length === 0 && (
+        <div className="hint-box">선택한 난이도에 해당하는 문제가 없습니다. 다른 난이도를 고르세요.</div>
       )}
       <div className="quiz-list">
         {activeQuestions.map((question, index) => {
@@ -314,9 +372,22 @@ function QuizPanelV2({
                     <small>실패 모드: <MathText text={question.expectedFailureMode} /></small>
                   )}
                   {!isCorrect && (
-                    <small>
-                      오답 유형: {v2ErrorTypeLabel[question.wrongAnswerAnalysis.errorType]} · 복습: {question.wrongAnswerAnalysis.reviewSession}
-                    </small>
+                    <div className="wrong-analysis-detail">
+                      <strong>왜 틀렸는지</strong>
+                      <span>{question.wrongAnswerAnalysis.whyWrong}</span>
+                      <small>
+                        오답 유형: {v2ErrorTypeLabel[question.wrongAnswerAnalysis.errorType]} · 심각도:{" "}
+                        {severityLabel[question.wrongAnswerAnalysis.severity ?? "medium"]} · 자주 하는 오답:{" "}
+                        {question.wrongAnswerAnalysis.commonWrongAnswer}
+                      </small>
+                      <div className="review-targets">
+                        {reviewTargetsForV2Question(question).map((target) => (
+                          <button className="text-button" key={target} onClick={() => onReviewTarget?.(target)} type="button">
+                            복습 열기: {target}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -347,15 +418,18 @@ function QuizPanelLegacy({
   onSaveScore,
   savedAnswers,
   onSaveAnswer,
+  onReviewTarget,
   onResetAnswers,
   onRecordWrongAnswers,
 }: QuizPanelProps) {
   const [answers, setAnswers] = useState<Record<string, string>>(savedAnswers);
   const [submitted, setSubmitted] = useState(false);
+  const [difficultyFilter, setDifficultyFilter] = useState<"all" | NonNullable<(typeof section.quiz)[number]["difficulty"]>>("all");
 
   useEffect(() => {
     setAnswers(savedAnswers);
     setSubmitted(false);
+    setDifficultyFilter("all");
   }, [savedAnswers, section.id]);
 
   const questionPoints = (question: (typeof section.quiz)[number]) => question.points ?? 1;
@@ -390,11 +464,28 @@ function QuizPanelLegacy({
     return normalized === question.answer.trim().toLowerCase() ? questionPoints(question) : 0;
   };
 
+  const activeQuestions = useMemo(() => {
+    if (difficultyFilter === "all") return section.quiz;
+    return section.quiz.filter((question) => question.difficulty === difficultyFilter);
+  }, [difficultyFilter, section.quiz]);
+
+  const difficultyCounts = useMemo(
+    () => ({
+      all: section.quiz.length,
+      기초: section.quiz.filter((question) => question.difficulty === "기초").length,
+      계산: section.quiz.filter((question) => question.difficulty === "계산").length,
+      유도: section.quiz.filter((question) => question.difficulty === "유도").length,
+      전문: section.quiz.filter((question) => question.difficulty === "전문").length,
+    }),
+    [section.quiz],
+  );
+
   const score = useMemo(() => {
-    const earned = section.quiz.reduce((sum, question) => sum + gradeQuestion(question, answers[question.id] ?? ""), 0);
-    const total = section.quiz.reduce((sum, question) => sum + questionPoints(question), 0);
+    const earned = activeQuestions.reduce((sum, question) => sum + gradeQuestion(question, answers[question.id] ?? ""), 0);
+    const total = activeQuestions.reduce((sum, question) => sum + questionPoints(question), 0);
+    if (total === 0) return 0;
     return Math.round((earned / total) * 100);
-  }, [answers, section.quiz]);
+  }, [answers, activeQuestions]);
 
   const setAnswer = (questionId: string, answer: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
@@ -406,7 +497,7 @@ function QuizPanelLegacy({
     onSaveScore(score);
     const today = new Date().toISOString().slice(0, 10);
     const relatedFormula = section.theory.flatMap((unit) => unit.formulas)[0]?.expression;
-    const wrongAnswers = section.quiz
+    const wrongAnswers = activeQuestions
       .filter((question) => gradeQuestion(question, answers[question.id] ?? "") < questionPoints(question))
       .map((question) => ({
         date: today,
@@ -431,7 +522,7 @@ function QuizPanelLegacy({
     const handler = () => submit();
     window.addEventListener("physical-ai:submit-quiz", handler);
     return () => window.removeEventListener("physical-ai:submit-quiz", handler);
-  }, [answers, score, section]);
+  }, [answers, score, section, activeQuestions]);
 
   return (
     <section className="panel">
@@ -443,8 +534,35 @@ function QuizPanelLegacy({
         <div className="score-pill">최고 {bestScore}점</div>
       </div>
 
+      <div className="quiz-filter-row" aria-label="난이도별 문제 선택">
+        {[
+          ["all", "전체", difficultyCounts.all],
+          ["기초", "쉬운 문제", difficultyCounts.기초],
+          ["계산", "계산 문제", difficultyCounts.계산],
+          ["유도", "유도 문제", difficultyCounts.유도],
+          ["전문", "어려운 문제", difficultyCounts.전문],
+        ].map(([value, label, count]) => (
+          <button
+            className={difficultyFilter === value ? "is-active" : ""}
+            disabled={count === 0}
+            key={value}
+            onClick={() => {
+              setDifficultyFilter(value as "all" | NonNullable<(typeof section.quiz)[number]["difficulty"]>);
+              setSubmitted(false);
+            }}
+            type="button"
+          >
+            {label} <span>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeQuestions.length === 0 && (
+        <div className="hint-box">선택한 난이도에 해당하는 문제가 없습니다. 다른 난이도를 고르세요.</div>
+      )}
+
       <div className="quiz-list">
-        {section.quiz.map((question, index) => {
+        {activeQuestions.map((question, index) => {
           const answer = answers[question.id] ?? "";
           const earned = gradeQuestion(question, answer);
           const maxPoints = questionPoints(question);
@@ -563,6 +681,19 @@ function QuizPanelLegacy({
                         <li key={step}><MathText text={step} /></li>
                       ))}
                     </ol>
+                  )}
+                  {!isCorrect && (
+                    <div className="wrong-analysis-detail">
+                      <strong>왜 틀렸는지</strong>
+                      <span>{question.explanation}</span>
+                      {question.relatedTheoryId && (
+                        <div className="review-targets">
+                          <button className="text-button" onClick={() => onReviewTarget?.(question.relatedTheoryId!)} type="button">
+                            복습 열기: {question.relatedTheoryId}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

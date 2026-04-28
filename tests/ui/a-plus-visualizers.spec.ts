@@ -16,7 +16,7 @@ test("A+ 보강 세션과 주요 visualizer가 렌더링된다", async ({ page }
 
   await page.locator("button.module-button").filter({ hasText: "Part 5." }).click();
   await page.locator(".section-select select").selectOption("opencv_threshold_contour_basics");
-  await expect(page.getByRole("heading", { name: "OpenCV 기초: Threshold, Contour, Bounding Box", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "OpenCV: Threshold·Contour", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "시각화" }).click();
   await expect(page.getByText("OpenCV Threshold / Contour")).toBeVisible();
   await expect(page.locator("svg.plot").first()).toBeVisible();

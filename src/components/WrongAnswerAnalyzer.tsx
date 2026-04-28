@@ -4,6 +4,7 @@ import type { CurriculumModule, WrongAnswerEntry } from "../types";
 
 type WrongAnswerAnalyzerProps = {
   modules: CurriculumModule[];
+  onOpenReviewTarget?: (target: string) => void;
   wrongAnswers: WrongAnswerEntry[];
 };
 
@@ -28,7 +29,10 @@ const errorTypeLabel: Record<string, string> = {
   safety_misjudgment: "안전 판단 오류",
 };
 
-export function WrongAnswerAnalyzer({ modules, wrongAnswers }: WrongAnswerAnalyzerProps) {
+const reviewTargetsFor = (entry: WrongAnswerEntry) =>
+  [...new Set([...(entry.recommendedReview ?? []), entry.conceptTag, entry.sectionId].filter(Boolean))] as string[];
+
+export function WrongAnswerAnalyzer({ modules, onOpenReviewTarget, wrongAnswers }: WrongAnswerAnalyzerProps) {
   if (wrongAnswers.length === 0) return null;
   const sectionMap = new Map<string, string>();
   for (const module of modules) {
@@ -87,6 +91,17 @@ export function WrongAnswerAnalyzer({ modules, wrongAnswers }: WrongAnswerAnalyz
               </div>
             </div>
             <small className="wrong-explain">{entry.explanation}</small>
+            {reviewTargetsFor(entry).length > 0 && (
+              <div className="review-targets">
+                {reviewTargetsFor(entry)
+                  .slice(0, 3)
+                  .map((target) => (
+                    <button className="text-button" key={target} onClick={() => onOpenReviewTarget?.(target)} type="button">
+                      복습 열기: {target}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

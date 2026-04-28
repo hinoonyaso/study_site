@@ -13,6 +13,7 @@ import {
   Route,
   X,
 } from "lucide-react";
+import { AssessmentReportPanel } from "./components/AssessmentReportPanel";
 import { FlashcardPanel } from "./components/FlashcardPanel";
 import { NotesEditor } from "./components/NotesEditor";
 import { PomodoroTimer } from "./components/PomodoroTimer";
@@ -71,6 +72,43 @@ function AppContent() {
   );
   const previousSection = currentSectionIndex > 0 ? allSections[currentSectionIndex - 1] : undefined;
   const nextSection = currentSectionIndex >= 0 && currentSectionIndex < allSections.length - 1 ? allSections[currentSectionIndex + 1] : undefined;
+
+  const openSection = useCallback((sectionId: string, tab: ActiveTab = "theory") => {
+    const parentModule = curriculum.find((module) => module.sections.some((section) => section.id === sectionId));
+    if (!parentModule) return false;
+    setSelectedModuleId(parentModule.id);
+    setSelectedSectionId(sectionId);
+    setActiveTab(tab);
+    window.requestAnimationFrame(() => document.querySelector(".lesson-header")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return true;
+  }, []);
+
+  const openReviewTarget = useCallback(
+    (target: string) => {
+      const normalizedTarget = target.trim().toLowerCase();
+      if (!normalizedTarget) return;
+      const matched = allSections.find((section) => {
+        const candidates = [
+          section.id,
+          section.title,
+          section.v2Session?.id,
+          section.v2Session?.title,
+          ...(section.v2Session?.quizzes.flatMap((quiz) => [
+            quiz.id,
+            quiz.conceptTag,
+            quiz.wrongAnswerAnalysis.reviewSession,
+            ...(quiz.wrongAnswerAnalysis.recommendedReview ?? []),
+          ]) ?? []),
+          ...(section.v2Session?.wrongAnswerTags.flatMap((tag) => [tag.conceptTag, ...tag.reviewSessions]) ?? []),
+        ]
+          .filter((item): item is string => Boolean(item))
+          .map((item) => item.toLowerCase());
+        return candidates.some((candidate) => candidate === normalizedTarget || candidate.includes(normalizedTarget));
+      });
+      if (matched) openSection(matched.id, "theory");
+    },
+    [allSections, openSection],
+  );
 
   const selectModule = (moduleId: string) => {
     const nextModule = curriculum.find((module) => module.id === moduleId) ?? curriculum[0];
@@ -451,6 +489,7 @@ function AppContent() {
               <QuizPanel
                 bestScore={progress.quizScores[currentSection.id] ?? 0}
                 onSaveAnswer={(questionId, answer) => saveQuizAnswer(currentSection.id, questionId, answer)}
+                onReviewTarget={openReviewTarget}
                 onResetAnswers={() => resetQuizAnswers(currentSection.id)}
                 onRecordWrongAnswers={recordWrongAnswers}
                 onSaveScore={(score) => saveQuizScore(currentSection.id, score)}
@@ -501,8 +540,9 @@ function AppContent() {
         />
         <SourceCatalogPanel section={currentSection} />
         <StatsPanel modules={curriculum} progress={progress} />
+        <AssessmentReportPanel modules={curriculum} onOpenReviewTarget={openReviewTarget} progress={progress} />
         <FlashcardPanel modules={curriculum} progress={progress} onUpdateCard={updateSrsCard} />
-        <WrongAnswerNote modules={curriculum} wrongAnswers={progress.wrongAnswers ?? []} />
+        <WrongAnswerNote modules={curriculum} onOpenReviewTarget={openReviewTarget} wrongAnswers={progress.wrongAnswers ?? []} />
       </aside>
     </div>
   );

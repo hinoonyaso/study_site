@@ -51,6 +51,7 @@ const sections = allSections.filter((section) => !section.v2Session);
 const v2Sections = allSections.filter((section) => section.v2Session);
 const v2Sessions = curriculumModule.v2Sessions;
 const v2VisualizationCatalog = curriculumModule.v2VisualizationCatalog;
+const assessmentCoverageChecklist = curriculumModule.assessmentCoverageChecklist;
 const finalImprovementRoadmap = curriculumModule.finalImprovementRoadmap;
 const contentQualityRemediationChecklist = curriculumModule.contentQualityRemediationChecklist;
 const mathFoundationAuditChecklist = curriculumModule.mathFoundationAuditChecklist;
@@ -332,6 +333,58 @@ assert(
     promptContextHarnessSource.includes("latency") &&
     promptContextHarnessSource.includes("schema_ok"),
 );
+assert(
+  "assessment coverage checklist covers requested weak quiz areas",
+  Array.isArray(assessmentCoverageChecklist) &&
+    ["편미분 전용 문제", "IK 문제", "Nav2 스택 문제", "프롬프트 엔지니어링 문제"].every((topic) =>
+      assessmentCoverageChecklist.some((item) => item.topic === topic),
+    ),
+  JSON.stringify(assessmentCoverageChecklist ?? []),
+);
+const assessmentEvidenceSessionIds = (assessmentCoverageChecklist ?? []).flatMap((item) => item.evidenceSessionIds ?? []);
+const missingAssessmentEvidenceSessions = assessmentEvidenceSessionIds.filter((id) => !v2SessionIds.has(id));
+assert(
+  "assessment coverage evidence sessions exist",
+  missingAssessmentEvidenceSessions.length === 0,
+  missingAssessmentEvidenceSessions.join(", "),
+);
+const allV2Questions = v2Sessions.flatMap((session) =>
+  session.quizzes.map((question) => ({
+    session,
+    question,
+    text: `${session.id} ${session.title} ${question.id} ${question.conceptTag} ${question.question} ${question.expectedAnswer} ${question.codeSnippet ?? ""}`.toLowerCase(),
+  })),
+);
+const topicQuestionCount = (patterns) =>
+  allV2Questions.filter(({ text }) => patterns.some((pattern) => pattern.test(text))).length;
+const partialDerivativeQuestionCount = topicQuestionCount([/partial_derivative/, /편미분/, /df\/dx/, /\\partial/]);
+const ikQuestionCount = topicQuestionCount([/\bik\b/, /inverse_kinematics/, /역기구학/, /elbow/, /dls/, /singularity/]);
+const nav2QuestionCount = topicQuestionCount([/nav2/, /bt_navigator/, /controller_server/, /costmap/, /lifecycle/, /launch file/]);
+const promptEngineeringQuestionCount = topicQuestionCount([
+  /prompt/,
+  /프롬프트/,
+  /few-shot/,
+  /schema_ok/,
+  /golden/,
+  /grounding/,
+  /retrieval/,
+  /latency tracing/,
+]);
+assert("partial derivative dedicated questions meet recommendation", partialDerivativeQuestionCount >= 5, `${partialDerivativeQuestionCount}/5`);
+assert("IK dedicated questions meet recommendation", ikQuestionCount >= 10, `${ikQuestionCount}/10`);
+assert("Nav2 stack questions meet recommendation", nav2QuestionCount >= 8, `${nav2QuestionCount}/8`);
+assert("prompt engineering questions meet recommendation", promptEngineeringQuestionCount >= 15, `${promptEngineeringQuestionCount}/15`);
+assert(
+  "required assessment problem forms are present",
+  allV2Questions.some(({ question }) => question.type === "derivation" && question.question.includes("순서")) &&
+    allV2Questions.some(
+      ({ question }) =>
+        question.type === "code_completion" &&
+        /launch|LaunchDescription|launch_ros|Node/.test(`${question.question} ${question.codeSnippet ?? ""}`) &&
+        `${question.question} ${question.codeSnippet ?? ""}`.includes("____"),
+    ) &&
+    allV2Questions.some(({ question }) => question.type === "visualization_interpretation" && question.question.includes("파라미터 추정")),
+);
 const aiDeploymentPipelineSessionIds = [
   "pytorch_bc_onnx_export_contract",
   "onnxruntime_cpp_policy_inference",
@@ -558,6 +611,8 @@ assert(
 );
 const appSource = fs.readFileSync("src/App.tsx", "utf8");
 const codeLabBlockSource = fs.readFileSync("src/components/CodeLabBlock.tsx", "utf8");
+const quizPanelSource = fs.readFileSync("src/components/QuizPanel.tsx", "utf8");
+const assessmentReportSource = fs.readFileSync("src/components/AssessmentReportPanel.tsx", "utf8");
 const visualizerHubSource = fs.readFileSync("src/components/visualizers/VisualizerHub.tsx", "utf8");
 const sidebarSource = fs.readFileSync("src/components/Sidebar.tsx", "utf8");
 const stylesSource = fs.readFileSync("src/styles.css", "utf8");
@@ -598,6 +653,29 @@ assert(
     codeLabBlockSource.includes("local-run-guide") &&
     fs.existsSync("requirements.txt") &&
     fs.existsSync("docker-compose.yml"),
+);
+assert(
+  "quiz panel exposes difficulty filtering and detailed wrong-answer explanations",
+  quizPanelSource.includes("quiz-filter-row") &&
+    quizPanelSource.includes("difficultyFilter") &&
+    quizPanelSource.includes("whyWrong") &&
+    quizPanelSource.includes("commonWrongAnswer") &&
+    quizPanelSource.includes("recommendedReview"),
+);
+assert(
+  "final exam wrong answers link back to review sessions",
+  quizPanelSource.includes("onReviewTarget") &&
+    appSource.includes("openReviewTarget") &&
+    appSource.includes("wrongAnswerAnalysis.reviewSession") &&
+    assessmentReportSource.includes("최종시험 복습 연결"),
+);
+assert(
+  "whole-curriculum diagnostic report is implemented",
+  appSource.includes("AssessmentReportPanel") &&
+    assessmentReportSource.includes("전체 진단 리포트") &&
+    assessmentReportSource.includes("강점") &&
+    assessmentReportSource.includes("약점") &&
+    assessmentReportSource.includes("우선 복습 세션"),
 );
 assert(
   "mobile bottom tabs and right-panel access are implemented",
@@ -662,6 +740,7 @@ assert(
   "src/data/gap_reinforcement/structuralImprovementSessions.ts",
   "src/data/eval_deployment/promptContextHarnessSessions.ts",
   "src/data/eval_deployment/aiDeploymentPipelineSessions.ts",
+  "src/data/eval_deployment/assessmentReinforcementSessions.ts",
 ].forEach((file) => assert(`v2 data file exists: ${file}`, fs.existsSync(file)));
 
 const coreQuizTypes = [

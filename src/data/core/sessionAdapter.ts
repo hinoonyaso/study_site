@@ -279,10 +279,11 @@ const legacyQuizFor = (question: Session["quizzes"][number]): QuizQuestion => ({
   points: question.type === "system_design" || question.type === "robot_scenario" ? 2 : 1,
 });
 
-const levelBadge = (session: Session): string | undefined => {
-  if (!session.level) return undefined;
-  const label = session.level === "beginner" ? "🟢 입문" : session.level === "intermediate" ? "🟡 중급" : "🔴 고급";
-  const stars = session.difficulty === "easy" ? "★☆☆" : session.difficulty === "medium" ? "★★☆" : "★★★";
+const levelBadge = (session: Session): string => {
+  const level = session.level ?? "intermediate";
+  const difficulty = session.difficulty ?? "medium";
+  const label = level === "beginner" ? "🟢 입문" : level === "intermediate" ? "🟡 중급" : "🔴 고급";
+  const stars = difficulty === "easy" ? "★☆☆" : difficulty === "medium" ? "★★☆" : "★★★";
   return `${label} ${stars}`;
 };
 

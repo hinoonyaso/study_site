@@ -622,6 +622,7 @@ button {
   display: flex;
   gap: 18px;
   justify-content: space-between;
+  margin-top: 18px;
   padding: 20px;
 }
 
@@ -659,11 +660,21 @@ button {
   padding: 16px;
 }
 
+.landing-roadmap {
+  margin-top: 0;
+}
+
 .roadmap-intro {
   align-items: start;
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.roadmap-intro h1 {
+  font-size: 30px;
+  line-height: 1.16;
+  margin: 6px 0 8px;
 }
 
 .roadmap-intro h2 {
@@ -677,6 +688,64 @@ button {
   line-height: 1.55;
   margin: 0;
   max-width: 760px;
+}
+
+.roadmap-intro p strong {
+  color: var(--text);
+}
+
+.roadmap-flow {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.roadmap-node {
+  align-content: start;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-height: 104px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.roadmap-node span {
+  align-items: center;
+  background: var(--teal);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.roadmap-node strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.roadmap-node small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.roadmap-flow-arrow {
+  align-items: center;
+  color: var(--amber);
+  display: inline-flex;
+  font-size: 18px;
+  font-weight: 900;
+  justify-content: center;
 }
 
 .mobile-progress-summary {
@@ -2860,6 +2929,10 @@ button {
   stroke: var(--teal);
 }
 
+.vector.accent {
+  stroke: var(--amber);
+}
+
 .vector.original,
 .point.original {
   fill: #7c6f64;
@@ -2923,6 +2996,17 @@ button {
   stroke-width: 1;
 }
 
+.ik-trace-dot.is-active {
+  fill: var(--red);
+  opacity: 1;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.ik-trace-dot.is-converged {
+  fill: var(--green);
+}
+
 .manip-ellipse {
   fill: rgba(4, 125, 122, 0.1);
   stroke: var(--teal);
@@ -2978,6 +3062,17 @@ button {
   color: var(--teal);
   font-size: 12px;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.matrix-card.is-pass {
+  background: var(--green-2);
+  border-color: var(--correct-border);
+}
+
+.matrix-card.is-fail {
+  background: var(--red-2);
+  border-color: var(--wrong-border);
 }
 
 .ik-trace-summary {
@@ -2998,6 +3093,32 @@ button {
   font-size: 12px;
   font-weight: 800;
   padding: 5px 8px;
+}
+
+.ik-trace-summary span.is-active {
+  background: var(--amber-2);
+  border-color: var(--amber);
+  color: var(--hint-text);
+}
+
+.ik-step-readout {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+}
+
+.ik-step-readout strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ik-step-readout span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .joint {
@@ -3075,6 +3196,49 @@ button {
   stroke: var(--amber);
   stroke-dasharray: 5 4;
   stroke-width: 2;
+}
+
+.image-frame {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.heat-cell {
+  fill: rgba(183, 121, 31, 0.14);
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.heat-cell.active {
+  fill: rgba(4, 125, 122, 0.46);
+  stroke: var(--teal);
+}
+
+.selection-box {
+  fill: none;
+  stroke: var(--amber);
+  stroke-dasharray: 6 4;
+  stroke-width: 3;
+}
+
+.nms-box {
+  fill: rgba(83, 99, 106, 0.08);
+  stroke: #53636a;
+  stroke-width: 2;
+}
+
+.nms-box.is-kept {
+  fill: rgba(22, 122, 74, 0.12);
+  stroke: var(--green);
+  stroke-width: 3;
+}
+
+.nms-box.is-suppressed {
+  fill: rgba(194, 65, 60, 0.08);
+  stroke: var(--red);
+  stroke-dasharray: 7 5;
+  stroke-width: 3;
 }
 
 .visualization-spec-card {
@@ -3191,6 +3355,110 @@ button {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+.compact-plot {
+  min-height: 220px;
+}
+
+.code-textarea {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  min-height: 260px;
+}
+
+.small-code-textarea {
+  min-height: 118px;
+}
+
+.auto-grid {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+.auto-cell {
+  aspect-ratio: 1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  min-width: 0;
+  padding: 0;
+}
+
+.auto-cell.is-selected {
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.auto-cell.is-obstacle {
+  background: #3e4a50;
+  border-color: #3e4a50;
+}
+
+.auto-cell.is-dijkstra {
+  background: var(--amber-2);
+  border-color: var(--amber);
+}
+
+.auto-cell.is-path {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.auto-cell.is-start {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.auto-cell.is-goal {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.dh-table {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px;
+}
+
+.dh-row {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 28px repeat(4, minmax(58px, 1fr));
+  min-width: 300px;
+}
+
+.dh-row.is-header {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dh-row strong {
+  color: var(--teal);
+  font-size: 12px;
+  text-align: center;
+}
+
+.dh-row input {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 6px;
+  width: 100%;
 }
 
 .confusion-grid {
@@ -3360,6 +3628,14 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .roadmap-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .roadmap-flow-arrow {
+    display: none;
+  }
+
   .mobile-progress-summary {
     justify-items: start;
     text-align: left;
@@ -3486,8 +3762,20 @@ button {
     font-size: 22px;
   }
 
+  .roadmap-intro h1 {
+    font-size: 24px;
+  }
+
   .roadmap-intro h2 {
     font-size: 18px;
+  }
+
+  .roadmap-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .roadmap-node {
+    min-height: auto;
   }
 
   .goal-presets,
@@ -3582,6 +3870,22 @@ button {
 
   .session-nav {
     grid-template-columns: 1fr;
+  }
+
+  .nav-step-button {
+    justify-content: flex-start;
+    min-width: 0;
+    padding: 14px;
+    width: 100%;
+  }
+
+  .nav-step-button.is-next {
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .nav-text-block strong {
+    overflow-wrap: anywhere;
   }
 
   .session-nav .text-button,

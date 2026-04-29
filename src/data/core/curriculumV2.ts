@@ -149,6 +149,7 @@ const friendlySessionTitles: Record<string, string> = {
   // ─── Part 2: 로봇팔 기구학 ─────────────────────────────────
   "robot_math_2d_rotation_matrix":              "2D 회전행렬 (cos/sin 변환)",
   "robot_math_3d_rotation_so3":                 "3D 회전과 SO(3) 그룹",
+  "robot_math_euler_angle_gimbal_lock":         "Euler Angle과 Gimbal Lock",
   "robot_math_homogeneous_transform_se3":       "동차변환 SE(3) (위치+회전)",
   "quaternion_so3_slerp":                       "쿼터니언과 구면 보간 (SLERP)",
   "robot_math_dh_parameter":                   "DH 파라미터 (관절 모델링)",
@@ -167,6 +168,9 @@ const friendlySessionTitles: Record<string, string> = {
 
   // ─── Part 4: 자율주행과 SLAM ────────────────────────────────
   "kalman_filter_1d":                           "칼만 필터 (Predict + Update)",
+  "differential_drive_odometry":                "Differential Drive Odometry",
+  "wheel_encoder_tick_odometry":                "Wheel Encoder Tick Odometry",
+  "lidar_scan_preprocessing":                   "LiDAR Scan 전처리 파이프라인",
   "ekf_localization":                           "EKF 위치추정 (Observation Jacobian)",
   "imu_preintegration_basic":                   "IMU 사전적분과 Bias 보정",
   "bicycle_model_kinematics":                   "자전거 모델 (차량 기구학)",
@@ -174,9 +178,14 @@ const friendlySessionTitles: Record<string, string> = {
   "occupancy_grid_mapping":                     "점유 격자 지도 생성",
   "costmap_inflation_nav2":                     "Costmap 팽창 레이어 (Nav2)",
   "slam_occupancy_grid":                        "SLAM: Log-Odds 점유 업데이트",
+  "dijkstra_grid_planning":                     "Dijkstra 경로계획",
   "path_planning_astar":                        "A* 경로계획 구현",
+  "hybrid_astar_state_lattice":                 "Hybrid A* State Lattice",
   "dwa_obstacle_avoidance":                     "DWA 장애물 회피 (속도 공간)",
+  "dwb_critic_controller":                      "DWB Critic Controller",
   "mppi_trajectory_planner_overview":           "MPPI: 샘플링 기반 경로계획 개요",
+  "slam_toolbox_launch_mapping":                "slam_toolbox Online Mapping 실행",
+  "mobile_navigation_integrated_stack":         "자율주행 통합 스택 시뮬레이션",
   "particle_filter_sir":                        "파티클 필터 (SIR / AMCL)",
   "sensor_fusion_gps_imu":                      "센서 융합: GPS + IMU 보정",
   "pose_graph_slam_basics":                     "Graph SLAM과 루프 클로저",
@@ -186,6 +195,10 @@ const friendlySessionTitles: Record<string, string> = {
   "pinhole_camera_projection":                  "핀홀 카메라 모델과 투영",
   "depth_estimation_stereo_geometry":           "깊이 추정 (Stereo Disparity)",
   "cnn_conv2d_feature_map":                     "CNN: Conv Layer와 Feature Map",
+  "browser_onnx_tiny_cnn_feature_demo":         "브라우저 ONNX식 Tiny CNN 데모",
+  "object_detection_iou_nms":                   "Object Detection: IoU와 NMS",
+  "object_detection_yolo_ssd_pipeline":         "YOLO/SSD 객체탐지 구조와 학습 파이프라인",
+  "visual_tracking_iou_kalman":                 "Visual Tracking: ID 유지와 IoU/Kalman 매칭",
   "semantic_segmentation_basics":               "시맨틱 세그멘테이션과 Mask IoU",
   "pose_estimation_pnp_6d":                     "6D 자세 추정 (PnP / solvePnP)",
 
@@ -282,6 +295,7 @@ const friendlySessionTitles: Record<string, string> = {
   "ros2_package_build_ament_cmake":             "ROS 2 C++ 패키지 빌드 (CMakeLists)",
   "urdf_joint_parser_basics":                   "URDF 파싱: 관절 트리와 Controller 목록",
   "ros2_cli_command_diagnostics_lab":           "ROS 2 CLI 진단 명령어 실습",
+  "camera_to_cmd_vel_inference_pipeline":       "Camera→Inference→cmd_vel End-to-End",
 
   // ─── 보강: 데이터 준비 / 통합 ───────────────────────────────
   "dataset_label_split_confusion_matrix_practice": "데이터셋 준비: Label·Split·Confusion Matrix",

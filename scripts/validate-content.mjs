@@ -389,6 +389,7 @@ const aiDeploymentPipelineSessionIds = [
   "pytorch_bc_onnx_export_contract",
   "onnxruntime_cpp_policy_inference",
   "ros2_image_inference_latency_node",
+  "camera_to_cmd_vel_inference_pipeline",
 ];
 const aiDeploymentPart = curriculum.find((module) => module.id === "v2-part-11-ai-deployment-pipeline");
 assert(
@@ -613,7 +614,20 @@ const appSource = fs.readFileSync("src/App.tsx", "utf8");
 const codeLabBlockSource = fs.readFileSync("src/components/CodeLabBlock.tsx", "utf8");
 const quizPanelSource = fs.readFileSync("src/components/QuizPanel.tsx", "utf8");
 const assessmentReportSource = fs.readFileSync("src/components/AssessmentReportPanel.tsx", "utf8");
-const visualizerHubSource = fs.readFileSync("src/components/visualizers/VisualizerHub.tsx", "utf8");
+const visualizerHubSource = [
+  "src/components/visualizers/VisualizerHub.tsx",
+  "src/components/visualizers/ManipulatorVisualizer.tsx",
+  "src/components/visualizers/EmptyVisualizer.tsx",
+  "src/components/visualizers/VisualizationSpecCards.tsx",
+  "src/components/visualizers/VisualizationSpecInteractiveCard.tsx",
+  "src/components/visualizers/Nav2WorkflowStackVisualizer.tsx",
+  "src/components/visualizers/MobileNavigationStackVisualizer.tsx",
+  "src/components/visualizers/CNNFeatureMapVisualizer.tsx",
+  "src/components/visualizers/NMSIoUVisualizer.tsx",
+  "src/components/visualizers/PhysicalAIFlowVisualizer.tsx",
+]
+  .map((filePath) => fs.readFileSync(filePath, "utf8"))
+  .join("\n");
 const sidebarSource = fs.readFileSync("src/components/Sidebar.tsx", "utf8");
 const stylesSource = fs.readFileSync("src/styles.css", "utf8");
 assert(
@@ -698,6 +712,46 @@ assert(
     visualizerHubSource.includes("analytic elbow-up seed") &&
     visualizerHubSource.includes("workspace 밖 target") &&
     visualizerHubSource.includes("det(JJᵀ)"),
+);
+const autonomyAuditSessionIds = [
+  "differential_drive_odometry",
+  "wheel_encoder_tick_odometry",
+  "lidar_scan_preprocessing",
+  "dijkstra_grid_planning",
+  "hybrid_astar_state_lattice",
+  "dwb_critic_controller",
+  "slam_toolbox_launch_mapping",
+  "mobile_navigation_integrated_stack",
+];
+assert(
+  "autonomous/mobile robot audit closure sessions present",
+  autonomyAuditSessionIds.every((id) => v2SessionIds.has(id)),
+  autonomyAuditSessionIds.filter((id) => !v2SessionIds.has(id)).join(", "),
+);
+assert(
+  "mobile navigation integrated stack and TF tree visualization are rendered",
+  visualizerHubSource.includes("MobileNavigationStackVisualizer") &&
+    visualizerHubSource.includes("mobile-navigation-stack") &&
+    visualizerHubSource.includes("T_map_base") &&
+    visualizerHubSource.includes("slam_toolbox"),
+);
+const aiFoundationAuditSessionIds = [
+  "browser_onnx_tiny_cnn_feature_demo",
+  "object_detection_yolo_ssd_pipeline",
+  "visual_tracking_iou_kalman",
+  "camera_to_cmd_vel_inference_pipeline",
+];
+assert(
+  "AI foundation audit closure sessions present",
+  aiFoundationAuditSessionIds.every((id) => v2SessionIds.has(id)),
+  aiFoundationAuditSessionIds.filter((id) => !v2SessionIds.has(id)).join(", "),
+);
+assert(
+  "AI foundation browser CNN, detection/tracking, and cmd_vel visuals are rendered",
+  visualizerHubSource.includes("tinyOnnxDemoWeights") &&
+    visualizerHubSource.includes("ONNX-style Tiny CNN") &&
+    visualizerHubSource.includes("NMSIoUVisualizer") &&
+    visualizerHubSource.includes("PhysicalAIFlowVisualizer"),
 );
 assert(
   "foundation math custom visualizers are rendered",
@@ -904,7 +958,7 @@ assert("all sessions have knowledge-map prerequisites", missingPrereq.length ===
 
 const theoryPanel = fs.readFileSync("src/components/TheoryPanel.tsx", "utf8");
 const quizPanel = fs.readFileSync("src/components/QuizPanel.tsx", "utf8");
-const visualizerHub = fs.readFileSync("src/components/visualizers/VisualizerHub.tsx", "utf8");
+const visualizerHub = visualizerHubSource;
 const searchBar = fs.readFileSync("src/components/SearchBar.tsx", "utf8");
 const sidebar = fs.readFileSync("src/components/Sidebar.tsx", "utf8");
 const practicePanel = fs.readFileSync("src/components/PracticePanel.tsx", "utf8");

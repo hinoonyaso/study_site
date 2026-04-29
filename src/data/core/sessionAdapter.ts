@@ -25,14 +25,86 @@ const graphIdsByPart = (session: Session): TheoryGraphId[] => {
 };
 
 const visualizerIdBySession = (session: Session): VisualizerId => {
-  if (session.id.includes("matrix_multiplication_grid_basics")) return "matrix-grid";
-  if (session.id.includes("pseudoinverse_rank_deficient_basics")) return "svd-jacobian";
+  if (session.id.includes("vector_matrix_inverse_cross_product_basics")) return "foundation-linear-algebra";
+  if (session.id.includes("matrix_multiplication_grid_basics")) return "matrix-composition-3d";
+  if (session.id.includes("pseudoinverse_rank_deficient_basics")) return "pseudoinverse-map";
+  if (session.id.includes("eigenvalue_covariance_ellipse")) return "eigen-covariance";
+  if (session.id.includes("svd_condition_number")) return "svd-transform";
+  if (session.id.includes("calculus_derivative_chain_rule")) return "chain-rule-graph";
+  if (session.id.includes("numerical_jacobian_2link")) return "jacobian-compare";
+  if (session.id.includes("robot_math_jacobian_velocity_kinematics")) return "jacobian-compare";
+  if (session.id.includes("robot_math_homogeneous_transform_se3")) return "homogeneous-4x4";
+  if (session.id.includes("euler_angle_gimbal_lock")) return "quaternion-slerp";
+  if (session.id.includes("kalman_filter_1d")) return "kalman-stages";
+  if (session.id.includes("robot_math_dh_parameter")) return "dh-table-builder";
+  if (session.id.includes("robot_math_forward_kinematics")) return "dh-table-builder";
+  if (session.id.includes("urdf")) return "urdf-xacro-builder";
+  if (session.id.includes("admittance") || session.id.includes("impedance")) return "impedance-admittance";
+  if (session.id.includes("ros2_control_pid")) return "ros2-control-yaml";
+  if (session.id.includes("trajectory_quintic")) return "moveit-plan-preview";
+  if (session.id.includes("moveit")) return "moveit-plan-preview";
+  if (session.id.includes("differential_drive") || session.id.includes("diff_drive")) return "mobile-odom";
+  if (session.id.includes("wheel_encoder")) return "mobile-sensor-stack";
+  if (session.id.includes("mobile_navigation_integrated_stack")) return "mobile-navigation-stack";
+  if (
+    session.id.includes("encoder") ||
+    session.id.includes("lidar") ||
+    session.id.includes("laser") ||
+    session.id.includes("imu_preintegration") ||
+    session.id.includes("low_pass_filter_imu") ||
+    session.id.includes("sensor_time_sync") ||
+    session.id.includes("mle_sensor_calibration") ||
+    session.id.includes("stereo_calibration") ||
+    session.id.includes("imu_camera_tight_coupling")
+  ) return "mobile-sensor-stack";
+  if (
+    session.id.includes("ekf_localization") ||
+    session.id.includes("ekf_chi_squared") ||
+    session.id.includes("ukf_sigma") ||
+    session.id.includes("particle_filter")
+  ) return "localization-filter-stack";
+  if (
+    session.id.includes("occupancy_grid") ||
+    session.id.includes("slam_occupancy") ||
+    session.id.includes("pose_graph_slam") ||
+    session.id.includes("slam_toolbox") ||
+    session.id.includes("costmap_inflation")
+  ) return "mapping-costmap-stack";
+  if (
+    session.id.includes("dwa_obstacle") ||
+    session.id.includes("mppi") ||
+    session.id.includes("dwb") ||
+    session.id.includes("hybrid") ||
+    session.id.includes("dijkstra") ||
+    session.id.includes("a_star") ||
+    session.id.includes("path_planning")
+  ) return "planning-control-stack";
+  if (
+    session.id.includes("nav2") ||
+    session.id.includes("robot_localization") ||
+    session.id.includes("sensor_fusion_gps_imu") ||
+    session.id.includes("ros2_tf2_transform") ||
+    session.id.includes("tf2")
+  ) return "nav2-workflow-stack";
+  if (
+    session.id.includes("dataset_label_split") ||
+    session.id.includes("train_validation") ||
+    session.id.includes("label_quality")
+  ) return "dataset-quality-stack";
+  if (session.id.includes("browser_onnx_tiny_cnn")) return "cnn-feature-map";
+  if (
+    session.id.includes("pytorch_bc_mlp") ||
+    session.id.includes("behavior_cloning_physical_ai") ||
+    session.id.includes("cnn_conv2d_feature_map") ||
+    session.id.includes("semantic_segmentation_training_loss")
+  ) return "ai-training-curve";
+  if (session.id.includes("opencv_threshold_contour")) return "augmentation-lab";
+  if (session.id.includes("object_detection") || session.id.includes("tracking")) return "nms-iou-lab";
   if (session.id.includes("partial_derivative_gradient_tangent_plane")) return "loss-landscape";
   if (session.id.includes("gradient_descent_loss_landscape")) return "loss-landscape";
   if (session.id.includes("gaussian_bayes_update_distribution")) return "bayes-gaussian";
   if (session.id.includes("finite_difference_ode_solver_basics")) return "ode-finite-diff";
   if (session.id.includes("cross_product_torque")) return "cross-product-3d";
-  if (session.id.includes("vector_matrix_inverse_cross_product_basics")) return "matrix-grid";
   if (session.id.includes("fk_matrix_ik_singularity_visual_lab")) return "jacobian-singularity";
   if (session.id.includes("bicycle_model_stanley_controller")) return "bicycle-stanley";
   if (session.id.includes("dataset_label_split_confusion_matrix_practice")) return "ai-metrics";
@@ -49,6 +121,7 @@ const visualizerIdBySession = (session: Session): VisualizerId => {
   if (session.id.includes("pytorch_bc_onnx_export")) return "physical-ai-flow";
   if (session.id.includes("onnxruntime_cpp_policy_inference")) return "latency";
   if (session.id.includes("ros2_image_inference_latency_node")) return "ros2-loop";
+  if (session.id.includes("camera_to_cmd_vel_inference_pipeline")) return "physical-ai-flow";
   if (session.id.includes("null_space")) return "svd-jacobian";
   if (session.id.includes("contact_dynamics") || session.id.includes("friction_cone")) return "dynamics-torque";
   if (session.id.includes("ilqr")) return "trajectory-profile";
@@ -122,6 +195,16 @@ const visualizerIdBySession = (session: Session): VisualizerId => {
 
 const executableLabBySession = (session: Session): ExecutableLabId => {
   if (session.id.includes("vector_matrix_inverse_cross_product_basics")) return "homogeneous-transform";
+  if (session.id.includes("differential_drive") || session.id.includes("wheel_encoder")) return "diff-drive";
+  if (session.id.includes("lidar_scan_preprocessing")) return "occupancy-log-odds";
+  if (session.id.includes("dijkstra") || session.id.includes("hybrid_astar")) return "astar-grid";
+  if (session.id.includes("dwb")) return "dwa-velocity";
+  if (session.id.includes("mppi")) return "mpc-rollout";
+  if (session.id.includes("slam_toolbox")) return "ros2-sub-pub-loop";
+  if (session.id.includes("mobile_navigation_integrated_stack")) return "diff-drive";
+  if (session.id.includes("browser_onnx_tiny_cnn")) return "onnx-shape-contract";
+  if (session.id.includes("object_detection_yolo") || session.id.includes("visual_tracking")) return "ai-metrics";
+  if (session.id.includes("camera_to_cmd_vel_inference_pipeline")) return "ros2-sub-pub-loop";
   if (session.id.includes("fk_matrix_ik_singularity_visual_lab")) return "two-link-fk";
   if (session.id.includes("bicycle_model_stanley_controller")) return "stanley-controller";
   if (session.id.includes("dataset_label_split_confusion_matrix_practice")) return "ai-metrics";
@@ -153,6 +236,7 @@ const executableLabBySession = (session: Session): ExecutableLabId => {
   if (session.id.includes("nav2_behavior_tree")) return "ros2-sub-pub-loop";
   if (session.id.includes("mle_sensor")) return "kalman-1d";
   if (session.id.includes("lie_algebra")) return "homogeneous-transform";
+  if (session.id.includes("euler_angle_gimbal_lock")) return "rotation-2d";
   if (session.id.includes("cpp_eigen_ik")) return "two-link-fk";
   if (session.id.includes("grasp_pose")) return "camera-projection";
   if (session.id.includes("impedance")) return "pid-response";

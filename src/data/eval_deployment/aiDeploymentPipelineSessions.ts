@@ -511,6 +511,174 @@ g++ -std=c++17 ros2_image_inference_latency_node.cpp -O2 -o ros2_gate
       designAnswer: "model_path, input_topic, output_topic, confidence_threshold, max_age_ms, provider, queue depth, fallback mode, latency log path를 포함한다.",
     },
     wrongTagLabel: "ROS 2 image inference timestamp/latency gate 누락",
+    nextSessions: ["camera_to_cmd_vel_inference_pipeline", "system_parameter_selection_report", "final-loop--python-cpp-ros-loop"],
+  }),
+  makeAdvancedSession({
+    id: "camera_to_cmd_vel_inference_pipeline",
+    part: "Part 11. AI 배포 파이프라인",
+    title: "Camera Topic → Inference → cmd_vel End-to-End 연결",
+    level: "advanced",
+    difficulty: "hard",
+    estimatedMinutes: 95,
+    prerequisites: ["ros2_image_inference_latency_node", "object_detection_yolo_ssd_pipeline", "ros2_subscriber_pub_loop"],
+    objectives: [
+      "camera image topic을 받아 전처리, C++ inference, postprocess, safety gate, cmd_vel publish 순서로 연결한다.",
+      "detection confidence, sensor age, steering offset을 이용해 Twist 명령을 계산한다.",
+      "낮은 confidence, 오래된 frame, action limit 초과 시 cmd_vel을 stop/fallback으로 막는다.",
+      "Part 5 비전 모델과 Part 11 ROS 2 배포가 실제 로봇 명령으로 이어지는 계약을 정리한다.",
+    ],
+    definition:
+      "camera-to-cmd_vel pipeline은 ROS 2 camera topic에서 들어온 이미지 추론 결과를 geometry_msgs/Twist 명령으로 바꾸기 전, timestamp와 confidence, command limit을 검사하는 end-to-end 배포 흐름이다.",
+    whyItMatters:
+      "카메라 추론 노드가 결과를 publish하는 것만으로는 로봇이 움직이지 않는다. 초보자는 image → inference → decision → cmd_vel 사이의 gate와 fallback을 한 화면에서 확인해야 실제 시스템 연결을 이해할 수 있다.",
+    intuition:
+      "카메라가 본 lane/object의 중심이 화면 중앙에서 얼마나 벗어났는지 보고 조향하되, 결과가 낡았거나 자신 없으면 움직이지 않는 안전한 배관이다.",
+    equations: [
+      {
+        label: "Normalized image offset",
+        expression: "e_x=\\frac{c_x-W/2}{W/2}",
+        terms: [["c_x", "detection 중심 x pixel"], ["W", "image width"]],
+        explanation: "화면 중심 대비 좌우 오차를 -1에서 1 근처 값으로 정규화한다.",
+      },
+      {
+        label: "Steering command",
+        expression: "\\omega_z=-k_e e_x",
+        terms: [["k_e", "조향 gain"], ["omega_z", "cmd_vel angular.z"]],
+        explanation: "object/lane 중심이 오른쪽이면 왼쪽으로 돌도록 부호를 둔다.",
+      },
+      {
+        label: "Publish gate",
+        expression: "publish=(T_{age}<T_{max})\\land(conf>\\tau)\\land(|\\omega_z|<\\omega_{max})",
+        terms: [["T_age", "image 기준 지연"], ["tau", "confidence threshold"], ["omega_max", "각속도 limit"]],
+        explanation: "stale/low-confidence/limit 초과 명령은 publish하지 않는다.",
+      },
+    ],
+    derivation: [
+      ["subscribe", "camera topic과 inference result를 같은 timestamp 기준으로 묶는다.", "/camera/image_raw"],
+      ["infer", "ONNX Runtime C++ 결과에서 class, confidence, bbox center를 읽는다.", "Detection{cx,conf}"],
+      ["decide", "bbox center offset으로 angular.z를 계산하고 linear.x를 confidence gate로 켠다.", "Twist"],
+      ["publish", "age/confidence/limit을 통과할 때만 /cmd_vel에 publish하고 실패 시 zero Twist를 낸다.", "safe stop"],
+    ],
+    handCalculation: {
+      problem: "image width 640, detection center x=400이면 normalized offset과 angular.z는? k=1.2",
+      given: { width: 640, center_x: 400, gain: 1.2 },
+      steps: ["e_x=(400-320)/320=0.25", "omega_z=-1.2*0.25=-0.3", "confidence와 age gate를 통과하면 publish한다."],
+      answer: "e_x=0.25, angular.z=-0.3 rad/s이다.",
+    },
+    robotApplication:
+      "lane follower, 사람 추종, 장애물 회피 데모에서 detector/tracker의 중심 위치와 confidence를 안전 gate에 통과시킨 뒤 cmd_vel을 발행한다.",
+    lab: {
+      id: "lab_camera_to_cmd_vel_gate",
+      title: "Camera Detection to cmd_vel Gate",
+      language: "cpp",
+      theoryConnection: "ex=(cx-W/2)/(W/2), angular_z=-k*ex, publish if age/conf/limit gate pass",
+      starterCode: `#include <cmath>
+#include <iostream>
+
+struct Detection {
+  bool valid;
+  double confidence;
+  double center_x;
+  double image_width;
+  double age_ms;
+};
+
+struct Twist {
+  double linear_x;
+  double angular_z;
+};
+
+Twist command_from_detection(const Detection& det, double min_confidence, double max_age_ms, double gain, double max_angular) {
+  // TODO: stale/low confidence/invalid detection이면 zero Twist를 반환하라.
+  // TODO: image center offset에서 angular_z를 계산하고 max_angular로 clamp하라.
+  return {0.0, 0.0};
+}
+
+int main() {
+  Detection det{true, 0.86, 400.0, 640.0, 24.0};
+  const auto cmd = command_from_detection(det, 0.7, 33.0, 1.2, 0.8);
+  std::cout << "cmd_vel linear_x=" << cmd.linear_x << " angular_z=" << cmd.angular_z << "\\n";
+}`,
+      solutionCode: `#include <algorithm>
+#include <cmath>
+#include <iostream>
+
+struct Detection {
+  bool valid;
+  double confidence;
+  double center_x;
+  double image_width;
+  double age_ms;
+};
+
+struct Twist {
+  double linear_x;
+  double angular_z;
+};
+
+Twist command_from_detection(const Detection& det, double min_confidence, double max_age_ms, double gain, double max_angular) {
+  if (!det.valid || det.confidence < min_confidence || det.age_ms > max_age_ms || det.image_width <= 0.0) {
+    return {0.0, 0.0};
+  }
+  const double half_width = det.image_width * 0.5;
+  const double normalized_offset = (det.center_x - half_width) / half_width;
+  const double raw_angular = -gain * normalized_offset;
+  const double angular = std::clamp(raw_angular, -max_angular, max_angular);
+  return {0.2, angular};
+}
+
+// Real ROS 2 node sketch:
+// /camera/image_raw -> cv_bridge preprocess -> ONNX Runtime inference
+// -> detection center/confidence -> command_from_detection
+// -> publisher<geometry_msgs::msg::Twist>("/cmd_vel")
+
+int main() {
+  Detection det{true, 0.86, 400.0, 640.0, 24.0};
+  const auto cmd = command_from_detection(det, 0.7, 33.0, 1.2, 0.8);
+  std::cout << "cmd_vel linear_x=" << cmd.linear_x << " angular_z=" << cmd.angular_z << "\\n";
+}`,
+      testCode: `# build smoke test
+g++ -std=c++17 camera_to_cmd_vel_gate.cpp -O2 -o camera_cmd_vel
+./camera_cmd_vel | grep "cmd_vel linear_x=0.2 angular_z=-0.3"`,
+      expectedOutput: "cmd_vel linear_x=0.2 angular_z=-0.3",
+      runCommand: "g++ -std=c++17 camera_to_cmd_vel_gate.cpp -O2 -o camera_cmd_vel && ./camera_cmd_vel",
+      commonBugs: [
+        "detection confidence가 낮아도 cmd_vel을 그대로 publish함",
+        "image width 기준 정규화를 빼먹어 angular.z가 pixel 단위로 폭발함",
+        "camera timestamp age를 보지 않아 오래된 detection으로 로봇을 움직임",
+      ],
+      extensionTask: "tracking ID별로 last_cmd timestamp를 기록해 같은 object에 대한 중복 action을 막아라.",
+    },
+    visualization: {
+      id: "vis_camera_to_cmd_vel_pipeline",
+      title: "Camera Inference to cmd_vel Safety Gate",
+      equation: "cmd_vel = gate(age, conf, limit) * policy(cx)",
+      parameters: [
+        { name: "center_offset", symbol: "e_x", min: -1, max: 1, default: 0.25, description: "화면 중심 대비 detection center offset" },
+        { name: "confidence_threshold", symbol: "tau", min: 0.1, max: 0.95, default: 0.7, description: "cmd_vel publish 최소 confidence" },
+        { name: "max_age_ms", symbol: "Tmax", min: 10, max: 120, default: 33, description: "허용 camera frame age" },
+      ],
+      normalCase: "신선한 frame과 높은 confidence에서만 제한된 cmd_vel이 publish된다.",
+      failureCase: "stale frame, 낮은 confidence, angular limit 초과 명령은 zero Twist/fallback으로 막는다.",
+    },
+    quiz: {
+      id: "camera_to_cmd_vel",
+      conceptQuestion: "camera inference 결과를 cmd_vel로 바로 바꾸기 전 gate가 필요한 이유는?",
+      conceptAnswer: "stale frame, 낮은 confidence, command limit 초과가 실제 로봇 움직임으로 이어지는 것을 막기 위해서다.",
+      calculationQuestion: "W=640, cx=400이면 normalized offset은?",
+      calculationAnswer: "(400-320)/320=0.25이다.",
+      codeQuestion: "중앙 offset에서 angular.z를 계산하는 식은?",
+      codeAnswer: "angular_z = -gain * normalized_offset",
+      debugQuestion: "angular.z가 너무 커지면 어떤 버그를 의심하는가?",
+      debugAnswer: "pixel offset을 image half width로 정규화하지 않았거나 clamp를 빠뜨린 버그를 확인한다.",
+      visualQuestion: "confidence_threshold를 높이면 publish gate는 어떻게 변하는가?",
+      visualAnswer: "낮은 confidence detection이 더 많이 차단되어 zero Twist/fallback 상태가 늘어난다.",
+      robotQuestion: "오래된 camera frame으로 cmd_vel을 내면 어떤 위험이 있는가?",
+      robotAnswer: "이미 지나간 장애물/차선을 기준으로 움직여 충돌이나 불필요한 조향이 생길 수 있다.",
+      designQuestion: "camera-to-cmd_vel launch/config에 넣을 파라미터는?",
+      designAnswer: "input_topic, model_path, confidence_threshold, max_age_ms, steering_gain, max_angular, linear_speed, fallback_mode, diagnostics_topic을 포함한다.",
+    },
+    wrongTagLabel: "camera inference to cmd_vel gate 누락",
     nextSessions: ["system_parameter_selection_report", "final-loop--python-cpp-ros-loop"],
   }),
 ];

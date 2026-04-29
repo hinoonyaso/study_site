@@ -545,8 +545,204 @@ int main() {
   std::cout << std::fixed << std::setprecision(3) << reference_value() << "\\n";
 }`;
 
+const matrixMultiplicationEigenCppLab = cppLab({
+  id: "lab_cpp_matrix_multiplication_grid_basics",
+  title: "C++ Eigen Matrix Multiplication and Frame Composition",
+  theoryConnection: "C = A * B and C.col(j) = A * B.col(j)",
+  starterCode: `#include <Eigen/Dense>
+#include <iomanip>
+#include <iostream>
+#include <stdexcept>
+
+using Eigen::Matrix2d;
+using Eigen::Vector2d;
+
+Matrix2d compose(const Matrix2d& A, const Matrix2d& B) {
+  // TODO: Eigen 행렬곱으로 C=A*B를 반환한다.
+  throw std::runtime_error("implement compose");
+}
+
+Vector2d transformed_column(const Matrix2d& A, const Matrix2d& B, int column) {
+  // TODO: C의 column이 A * B.col(column)과 같음을 확인한다.
+  throw std::runtime_error("implement transformed_column");
+}
+
+int main() {
+  Matrix2d A;
+  A << 1.0, 2.0,
+       0.0, 1.0;
+  Matrix2d B;
+  B << 2.0, 0.0,
+       1.0, 3.0;
+  Matrix2d C = compose(A, B);
+  Vector2d col0 = transformed_column(A, B, 0);
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "C:\\n" << C(0, 0) << " " << C(0, 1) << "\\n" << C(1, 0) << " " << C(1, 1) << "\\n";
+  std::cout << "col0: " << col0.x() << " " << col0.y() << "\\n";
+}`,
+  solutionCode: `#include <Eigen/Dense>
+#include <iomanip>
+#include <iostream>
+#include <stdexcept>
+
+using Eigen::Matrix2d;
+using Eigen::Vector2d;
+
+Matrix2d compose(const Matrix2d& A, const Matrix2d& B) {
+  return A * B;
+}
+
+Vector2d transformed_column(const Matrix2d& A, const Matrix2d& B, int column) {
+  if (column < 0 || column >= B.cols()) {
+    throw std::out_of_range("column index out of range");
+  }
+  return A * B.col(column);
+}
+
+int main() {
+  Matrix2d A;
+  A << 1.0, 2.0,
+       0.0, 1.0;
+  Matrix2d B;
+  B << 2.0, 0.0,
+       1.0, 3.0;
+  Matrix2d C = compose(A, B);
+  Vector2d col0 = transformed_column(A, B, 0);
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "C:\\n" << C(0, 0) << " " << C(0, 1) << "\\n" << C(1, 0) << " " << C(1, 1) << "\\n";
+  std::cout << "col0: " << col0.x() << " " << col0.y() << "\\n";
+}`,
+  testCode: `#include <Eigen/Dense>
+#include <cassert>
+#include <cmath>
+
+using Eigen::Matrix2d;
+using Eigen::Vector2d;
+
+Matrix2d compose(const Matrix2d& A, const Matrix2d& B);
+Vector2d transformed_column(const Matrix2d& A, const Matrix2d& B, int column);
+
+int main() {
+  Matrix2d A;
+  A << 1.0, 2.0,
+       0.0, 1.0;
+  Matrix2d B;
+  B << 2.0, 0.0,
+       1.0, 3.0;
+  Matrix2d C = compose(A, B);
+  assert((C - A * B).norm() < 1e-12);
+  assert((transformed_column(A, B, 0) - Vector2d(4.0, 1.0)).norm() < 1e-12);
+  assert((transformed_column(A, Matrix2d::Identity(), 1) - A.col(1)).norm() < 1e-12);
+}`,
+  expectedOutput: "C:\n4.0 6.0\n1.0 3.0\ncol0: 4.0 1.0",
+  runCommand: cppRun("cpp_matrix_multiplication_grid_basics"),
+  commonBugs: [
+    "A * B 대신 B * A를 써 frame composition 순서를 뒤집음",
+    "Eigen의 cwiseProduct를 행렬곱으로 착각함",
+    "B.col(j)를 A로 변환해야 한다는 column view를 놓침",
+  ],
+  extensionTask: "A와 B를 3x3 동차변환으로 확장하고 T_world_object = T_world_camera * T_camera_object를 계산하라.",
+});
+
+const svdConditionEigenCppLab = cppLab({
+  id: "lab_cpp_svd_condition_number",
+  title: "C++ Eigen SVD Condition Number",
+  theoryConnection: "Eigen::JacobiSVD gives singular values for kappa(A)=sigma_max/sigma_min",
+  starterCode: `#include <Eigen/Dense>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+
+double condition_number(const Eigen::Matrix2d& A, double tol = 1e-12) {
+  // TODO: JacobiSVD로 singular value를 구하고 sigma_max/sigma_min을 반환한다.
+  throw std::runtime_error("implement condition_number");
+}
+
+int numerical_rank(const Eigen::Matrix2d& A, double tol = 1e-12) {
+  // TODO: tolerance보다 큰 singular value 개수를 센다.
+  throw std::runtime_error("implement numerical_rank");
+}
+
+int main() {
+  Eigen::Matrix2d A;
+  A << 1.0, 0.99,
+       0.99, 0.98;
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "condition: " << condition_number(A) << "\\n";
+  std::cout << "rank: " << numerical_rank(A) << "\\n";
+}`,
+  solutionCode: `#include <Eigen/Dense>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+
+double condition_number(const Eigen::Matrix2d& A, double tol = 1e-12) {
+  Eigen::JacobiSVD<Eigen::Matrix2d> svd(A);
+  const auto singular_values = svd.singularValues();
+  const double sigma_max = singular_values(0);
+  const double sigma_min = singular_values(singular_values.size() - 1);
+  if (sigma_min <= tol) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return sigma_max / sigma_min;
+}
+
+int numerical_rank(const Eigen::Matrix2d& A, double tol = 1e-12) {
+  Eigen::JacobiSVD<Eigen::Matrix2d> svd(A);
+  int rank = 0;
+  for (int i = 0; i < svd.singularValues().size(); ++i) {
+    if (svd.singularValues()(i) > tol) ++rank;
+  }
+  return rank;
+}
+
+int main() {
+  Eigen::Matrix2d A;
+  A << 1.0, 0.99,
+       0.99, 0.98;
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "condition: " << condition_number(A) << "\\n";
+  std::cout << "rank: " << numerical_rank(A) << "\\n";
+}`,
+  testCode: `#include <Eigen/Dense>
+#include <cassert>
+#include <cmath>
+
+double condition_number(const Eigen::Matrix2d& A, double tol);
+int numerical_rank(const Eigen::Matrix2d& A, double tol);
+
+int main() {
+  assert(std::abs(condition_number(Eigen::Matrix2d::Identity(), 1e-12) - 1.0) < 1e-12);
+
+  Eigen::Matrix2d near_singular;
+  near_singular << 1.0, 0.99,
+                   0.99, 0.98;
+  assert(condition_number(near_singular, 1e-12) > 1000.0);
+  assert(numerical_rank(near_singular, 1e-12) == 2);
+
+  Eigen::Matrix2d rank_deficient;
+  rank_deficient << 1.0, 2.0,
+                    2.0, 4.0;
+  assert(std::isinf(condition_number(rank_deficient, 1e-12)));
+  assert(numerical_rank(rank_deficient, 1e-12) == 1);
+}`,
+  expectedOutput: "condition: 39206.0\nrank: 2",
+  runCommand: cppRun("cpp_svd_condition_number"),
+  commonBugs: [
+    "EigenSolver의 eigenvalue와 SVD singular value를 혼동함",
+    "sigma_min이 0일 때 그대로 나누어 inf/NaN을 만든다",
+    "tolerance 없이 rank를 세어 rank-deficient 행렬을 full-rank로 오판함",
+  ],
+  extensionTask: "Damped least squares gain sigma/(sigma^2+lambda^2)를 singular value별로 출력하라.",
+});
+
 const mathOrRobotCppLab = (session: Session): CodeLab | undefined => {
   switch (session.id) {
+    case "matrix_multiplication_grid_basics":
+      return matrixMultiplicationEigenCppLab;
     case "eigenvalue_covariance_ellipse":
       return simpleStdLab(
         session,
@@ -563,17 +759,7 @@ const mathOrRobotCppLab = (session: Session): CodeLab | undefined => {
         "2.099 0.764",
       );
     case "svd_condition_number":
-      return simpleStdLab(
-        session,
-        "svd_condition_number",
-        "C++ Eigen SVD Condition Number",
-        stdVectorBody(`  Eigen::Matrix2d A;
-  A << 1.0, 0.99, 0.99, 0.98;
-  Eigen::JacobiSVD<Eigen::Matrix2d> svd(A);
-  auto s = svd.singularValues();
-  return s(0) / s(1);`).replace("#include <vector>", "#include <vector>\n#include <Eigen/Dense>"),
-        "39205.000",
-      );
+      return svdConditionEigenCppLab;
     case "least_squares":
       return simpleStdLab(
         session,

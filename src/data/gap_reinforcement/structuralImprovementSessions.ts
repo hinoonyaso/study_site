@@ -883,8 +883,102 @@ def test_eval_requires_golden_target_and_confidence():
   },
 ];
 
-const structuralSessions = structuralTopics.map((topic) =>
-  makeAdvancedSession({
+const vectorMatrixCppLab: CodeLab = {
+  id: "lab_vector_matrix_cpp_browser_basics",
+  title: "C++ Eigen Vector Operations",
+  language: "cpp",
+  theoryConnection: "Eigen::Vector2d position, dot product, and 2D torque z = r_x F_y - r_y F_x",
+  starterCode: `#include <Eigen/Dense>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <stdexcept>
+
+using Eigen::Vector2d;
+
+double dot(const Vector2d& a, const Vector2d& b) {
+  // TODO: Eigen의 dot product를 사용한다.
+  throw std::runtime_error("implement dot");
+}
+
+Vector2d add(const Vector2d& a, const Vector2d& b) {
+  // TODO: 관절 위치 offset을 더한다.
+  throw std::runtime_error("implement add");
+}
+
+double torque_z(const Vector2d& r, const Vector2d& force) {
+  // TODO: 2D lever arm과 힘이 만드는 z축 토크를 반환한다.
+  throw std::runtime_error("implement torque_z");
+}
+
+int main() {
+  Vector2d joint(1.0, 0.2);
+  Vector2d offset(0.5, 0.3);
+  Vector2d force(2.0, 1.0);
+  Vector2d next = add(joint, offset);
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "dot: " << dot(offset, force) << "\\n";
+  std::cout << "joint: (" << next.x() << ", " << next.y() << ")\\n";
+  std::cout << "tau_z: " << torque_z(offset, force) << "\\n";
+}`,
+  solutionCode: `#include <Eigen/Dense>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+
+using Eigen::Vector2d;
+
+double dot(const Vector2d& a, const Vector2d& b) {
+  return a.dot(b);
+}
+
+Vector2d add(const Vector2d& a, const Vector2d& b) {
+  return a + b;
+}
+
+double torque_z(const Vector2d& r, const Vector2d& force) {
+  return r.x() * force.y() - r.y() * force.x();
+}
+
+int main() {
+  Vector2d joint(1.0, 0.2);
+  Vector2d offset(0.5, 0.3);
+  Vector2d force(2.0, 1.0);
+  Vector2d next = add(joint, offset);
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "dot: " << dot(offset, force) << "\\n";
+  std::cout << "joint: (" << next.x() << ", " << next.y() << ")\\n";
+  std::cout << "tau_z: " << torque_z(offset, force) << "\\n";
+}`,
+  testCode: `#include <Eigen/Dense>
+#include <cassert>
+#include <cmath>
+
+using Eigen::Vector2d;
+
+double dot(const Vector2d& a, const Vector2d& b);
+Vector2d add(const Vector2d& a, const Vector2d& b);
+double torque_z(const Vector2d& r, const Vector2d& force);
+
+int main() {
+  assert(std::abs(dot(Vector2d(0.5, 0.3), Vector2d(2.0, 1.0)) - 1.3) < 1e-9);
+  Vector2d next = add(Vector2d(1.0, 0.2), Vector2d(0.5, 0.3));
+  assert(std::abs(next.x() - 1.5) < 1e-9);
+  assert(std::abs(next.y() - 0.5) < 1e-9);
+  assert(std::abs(torque_z(Vector2d(0.2, 0.0), Vector2d(0.0, 5.0)) - 1.0) < 1e-9);
+}`,
+  expectedOutput: "dot: 1.3\njoint: (1.5, 0.5)\ntau_z: -0.1",
+  runCommand: "g++ -std=c++17 -I/usr/include/eigen3 vector_matrix_cpp_browser_basics.cpp -O2 && ./a.out",
+  commonBugs: [
+    "Eigen::Vector2d의 element-wise 곱과 dot product를 혼동함",
+    "joint 위치와 offset의 순서를 혼동해 좌표를 빼버림",
+    "2D torque_z를 force.x()*r.y()-force.y()*r.x()로 뒤집어 부호를 바꿈",
+  ],
+  extensionTask: "Eigen::Vector3d와 r.cross(F)를 추가해 3D 토크 방향을 계산하라.",
+};
+
+const structuralSessions = structuralTopics.map((topic) => {
+  const baseSession = makeAdvancedSession({
     id: topic.id,
     part: topic.part,
     title: topic.title,
@@ -902,8 +996,13 @@ const structuralSessions = structuralTopics.map((topic) =>
     quiz: topic.quiz,
     wrongTagLabel: topic.wrongTagLabel,
     nextSessions: topic.nextSessions,
-  }),
-);
+  });
+  if (topic.id !== "vector_matrix_inverse_cross_product_basics") return baseSession;
+  return {
+    ...baseSession,
+    codeLabs: [...baseSession.codeLabs, vectorMatrixCppLab],
+  };
+});
 
 export const structuralMathFoundationSessions: Session[] = structuralSessions.filter((session) =>
   session.part === "Part 1. Physical AI를 위한 기초수학",

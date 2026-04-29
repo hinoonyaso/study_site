@@ -83,6 +83,13 @@ export const promptContextHarnessFeatureAudit = [
     evaluates: ["deadline_ok", "bottleneck_stage"],
     logs: ["trace_id", "retrieval_ms", "model_ms", "parse_ms", "total_ms"],
   },
+  {
+    feature: "CSV/JSONL 결과 저장",
+    evidenceSessionIds: ["csv_jsonl_artifact_export"],
+    evidenceLabIds: ["lab_csv_jsonl_artifact_export"],
+    evaluates: ["file_export_ok", "format_valid"],
+    logs: ["file_name", "blob_size"],
+  },
 ] as const;
 
 const promptTemplateSession = makeAdvancedSession({
@@ -1073,6 +1080,179 @@ def test_jsonl_has_bottleneck_and_total():
   nextSessions: ["prompt_context_eval_harness_engineering"],
 });
 
+const csvJsonlExportSession = makeAdvancedSession({
+  id: "csv_jsonl_artifact_export",
+  part: "Part 10. 프롬프트/컨텍스트/하네스 엔지니어링",
+  title: "결과 리포트 내보내기: CSV/JSONL과 브라우저 다운로드",
+  level: "intermediate",
+  difficulty: "medium",
+  estimatedMinutes: 60,
+  prerequisites: ["latency_tracing_failure_taxonomy"],
+  objectives: [
+    "Trace 데이터를 JSONL 형식, Eval 결과를 CSV 형식 문자열로 변환한다.",
+    "Pyodide의 js 모듈을 활용하여 브라우저에서 파일(Blob) 다운로드를 트리거한다.",
+    "브라우저 환경과 로컬 환경을 모두 지원하는 fallback 코드를 작성한다.",
+  ],
+  definition:
+    "결과 리포트 내보내기는 평가 하네스나 에이전트 트레이스 실행 결과를 분석 가능하도록 표준 포맷(CSV/JSONL) 파일로 저장하거나 다운로드하는 과정이다.",
+  whyItMatters:
+    "콘솔 출력만으로는 대량의 평가 결과를 외부 도구(Excel, Pandas 등)에서 분석할 수 없다. 브라우저 실습 환경에서도 실제 분석 파일로 내보낼 수 있어야 완전한 평가 루프가 완성된다.",
+  intuition:
+    "결과 데이터는 메모리에만 있으면 사라진다. JSONL은 각 호출의 상세 로그를, CSV는 집계된 지표나 채점표를 파일로 남겨서 기록을 영구화해야 한다.",
+  equations: [
+    {
+      label: "JSONL Format",
+      expression: "file=\\sum_{i} json(trace_i)+\\text{'\\n'}",
+      terms: [["trace_i", "i번째 평가/로그 레코드"]],
+      explanation: "리스트나 배열 대신 한 줄씩 파싱 가능한 포맷으로 저장한다.",
+    },
+    {
+      label: "CSV Export",
+      expression: "row=join(values, ',')",
+      terms: [["values", "헤더에 대응하는 값들"]],
+      explanation: "간단한 통계와 메트릭은 테이블 형태로 출력한다.",
+    },
+    {
+      label: "Blob Download",
+      expression: "url=URL.createObjectURL(blob(data))",
+      terms: [["blob", "브라우저 메모리 객체"], ["url", "임시 다운로드 링크"]],
+      explanation: "서버가 없어도 브라우저 내에서 직접 파일을 생성해 다운로드한다.",
+    },
+  ],
+  derivation: [
+    ["format", "결과 데이터를 JSONL 또는 CSV 문자열로 변환한다.", "data_str"],
+    ["blob", "Pyodide 환경에서 js.Blob 객체를 만든다.", "js.Blob.new([data_str])"],
+    ["trigger", "가상의 <a> 태그를 만들어 브라우저 다운로드를 실행한다.", "a.click()"],
+    ["fallback", "브라우저가 아니면 로컬 시스템 파일로 저장한다.", "open(filename, 'w')"],
+  ],
+  handCalculation: {
+    problem: "3개의 trace가 있을 때 생성되는 JSONL의 줄 수는?",
+    given: { traces: 3 },
+    steps: ["각 trace를 json.dumps()로 직렬화하고 개행문자 추가", "총 3개의 개행이 있는 문자열이 됨"],
+    answer: "정확히 3줄이다.",
+  },
+  robotApplication:
+    "로봇의 테스트런 후 생성되는 수많은 센서 및 판단 로그(JSONL)와 성능 요약(CSV)을 원격 분석 시스템이나 엔지니어에게 안전하게 전달하기 위해 내보낸다.",
+  lab: {
+    id: "lab_csv_jsonl_artifact_export",
+    title: "CSV/JSONL Generator and Blob Downloader",
+    language: "python",
+    theoryConnection: "JSONL serialization and Browser Blob download",
+    starterCode: `import json
+import csv
+import io
+
+try:
+    from js import Blob, document, URL
+    is_browser = True
+except ImportError:
+    is_browser = False
+
+def generate_jsonl(traces):
+    # TODO: traces 리스트를 받아 개행으로 구분된 JSONL 문자열을 반환하라.
+    raise NotImplementedError
+
+def download_file(filename, content, mime_type="text/plain"):
+    # TODO: is_browser가 True면 Blob 다운로드를, False면 파일로 저장하라.
+    raise NotImplementedError
+
+if __name__ == "__main__":
+    traces = [{"id": 1, "status": "pass"}, {"id": 2, "status": "fail"}]
+    content = generate_jsonl(traces)
+    print("Generated Length:", len(content))
+    # download_file("results.jsonl", content) # 주석을 풀고 실행해보자
+`,
+    solutionCode: `import json
+import csv
+import io
+
+try:
+    from js import Blob, document, URL
+    is_browser = True
+except ImportError:
+    is_browser = False
+
+def generate_jsonl(traces):
+    lines = [json.dumps(trace, ensure_ascii=False) for trace in traces]
+    return "\\n".join(lines)
+
+def download_file(filename, content, mime_type="text/plain"):
+    if is_browser:
+        blob = Blob.new([content], type=mime_type)
+        url = URL.createObjectURL(blob)
+        a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+        return "downloaded via browser"
+    else:
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(content)
+        return "saved to local file"
+
+if __name__ == "__main__":
+    traces = [{"id": 1, "status": "pass"}, {"id": 2, "status": "fail"}]
+    content = generate_jsonl(traces)
+    print("Generated Length:", len(content))
+    # download_file("results.jsonl", content)
+`,
+    testCode: `from csv_jsonl_artifact_export import generate_jsonl, download_file
+import json
+
+def test_generate_jsonl():
+    traces = [{"id": 1, "status": "pass"}, {"id": 2, "status": "fail"}]
+    result = generate_jsonl(traces)
+    lines = result.split("\\n")
+    assert len(lines) == 2
+    assert json.loads(lines[0])["id"] == 1
+
+def test_download_fallback():
+    # 로컬 테스트 환경에서는 is_browser가 False이므로 파일로 저장됨
+    res = download_file("dummy.txt", "hello", "text/plain")
+    assert res == "saved to local file"
+`,
+    expectedOutput: "Generated Length: 60",
+    runCommand: "python csv_jsonl_artifact_export.py && pytest test_csv_jsonl_artifact_export.py",
+    commonBugs: [
+      "JSONL 생성 시 개행 문자(\\n) 처리를 누락함",
+      "브라우저(Pyodide) 환경에서 js 패키지가 없다고 착각하여 다운로드 기능을 구현하지 않음",
+    ],
+    extensionTask: "CSV 생성을 위한 generate_csv(headers, rows) 함수를 구현하고 download_file 함수와 연동하라.",
+  },
+  visualization: {
+    id: "vis_csv_jsonl_export",
+    title: "Artifact Export Size Calculator",
+    equation: "file_size = rows * avg_bytes_per_row",
+    parameters: [
+      param("record_count", "n", 1, 10000, 100, "내보낼 레코드 수"),
+      param("avg_bytes_per_row", "B", 10, 5000, 250, "레코드당 평균 바이트 수"),
+      param("format_overhead", "O", 1, 2, 1.2, "포맷 오버헤드 (CSV는 작고 JSONL은 큼)"),
+    ],
+    normalCase: "Blob 다운로드가 생성되며 로컬 환경에서는 파일로 안전하게 저장된다.",
+    failureCase: "데이터 크기가 브라우저 메모리 한계를 초과하거나 포맷팅 중 오류가 발생한다.",
+  },
+  quiz: {
+    id: "csv_jsonl_export_quiz",
+    conceptQuestion: "웹 브라우저의 Pyodide 환경에서 파이썬 코드가 직접 로컬 파일 시스템에 파일을 저장할 수 없는 이유는?",
+    conceptAnswer: "브라우저 샌드박스 보안 정책 때문에 로컬 디스크 접근이 차단되기 때문이며, 이를 우회하기 위해 Blob을 사용한다.",
+    calculationQuestion: "1000개의 레코드가 있고 평균 300바이트의 JSON 문자열일 때 예상 JSONL 파일 크기는?",
+    calculationAnswer: "약 300,000바이트 (300KB)이다.",
+    codeQuestion: "파이썬 딕셔너리를 JSONL 포맷 문자열로 변환할 때 필수적인 구분자는?",
+    codeAnswer: "\\\\n (개행문자)",
+    debugQuestion: "Blob 다운로드 코드가 실행되었으나 브라우저에서 다운로드 창이 뜨지 않는다면?",
+    debugAnswer: "document.createElement('a') 태그에 click() 메서드가 제대로 호출되었는지, 다운로드 속성(download)이 설정되었는지 확인한다.",
+    visualQuestion: "내보낼 레코드 수가 100만 개 단위로 커지면 발생할 수 있는 문제는?",
+    visualAnswer: "브라우저의 메모리 제한으로 인해 Blob 생성이 실패하거나 탭이 다운될 수 있다.",
+    robotQuestion: "로봇 런타임에서 평가 결과를 JSONL로 저장하는 것이 CSV보다 유리한 점은?",
+    robotAnswer: "중첩된 구조(딕셔너리, 배열)의 로봇 상태 데이터나 센서 배열 데이터를 복잡한 변환 없이 그대로 기록할 수 있기 때문이다.",
+    designQuestion: "평가 하네스의 파이프라인에서 결과 Export 모듈의 위치는?",
+    designAnswer: "모든 평가(run_eval)가 끝나고 metrics와 trace 기록이 수집된 가장 마지막 단계에 위치한다.",
+  },
+  wrongTagLabel: "CSV/JSONL Export 기능 구현 누락",
+  nextSessions: [],
+});
+
 export const promptContextHarnessSessions: Session[] = [
   promptTemplateSession,
   fewShotSession,
@@ -1080,4 +1260,5 @@ export const promptContextHarnessSessions: Session[] = [
   retrievalSession,
   evalHarnessSession,
   tracingSession,
+  csvJsonlExportSession,
 ];

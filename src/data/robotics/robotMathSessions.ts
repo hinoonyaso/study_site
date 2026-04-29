@@ -687,6 +687,87 @@ def test_larger_damping_reduces_gain():
   extensionTask: "damping을 0.001부터 10까지 바꾸며 qdot norm과 task error를 표로 출력하라.",
 });
 
+const eulerAngleLab = ensureCodeLabShape({
+  id: "lab_robot_math_euler_angle_gimbal_lock",
+  title: "Euler Angle Rotation Order and Gimbal Lock",
+  language: "python",
+  theoryConnection: "R = Rz(yaw) @ Ry(pitch) @ Rx(roll), pitch=90deg collapses yaw/roll axes",
+  starterCode: `import numpy as np
+
+def rot_x(roll):
+    # TODO: x축 회전행렬
+    raise NotImplementedError
+
+def rot_y(pitch):
+    # TODO: y축 회전행렬
+    raise NotImplementedError
+
+def rot_z(yaw):
+    # TODO: z축 회전행렬
+    raise NotImplementedError
+
+def rpy_matrix(roll, pitch, yaw):
+    # TODO: yaw-pitch-roll 순서로 합성하라. R = Rz @ Ry @ Rx
+    raise NotImplementedError
+
+def gimbal_lock_metric(pitch):
+    # TODO: pitch가 +-90도에 가까울수록 0에 가까워지는 값을 반환하라.
+    raise NotImplementedError
+
+if __name__ == "__main__":
+    R = rpy_matrix(np.deg2rad(30), np.deg2rad(90), np.deg2rad(45))
+    print(np.round(R, 3))
+    print("metric:", round(float(gimbal_lock_metric(np.deg2rad(90))), 6))`,
+  solutionCode: `import numpy as np
+
+def rot_x(roll):
+    c, s = np.cos(roll), np.sin(roll)
+    return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
+
+def rot_y(pitch):
+    c, s = np.cos(pitch), np.sin(pitch)
+    return np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+def rot_z(yaw):
+    c, s = np.cos(yaw), np.sin(yaw)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+def rpy_matrix(roll, pitch, yaw):
+    return rot_z(yaw) @ rot_y(pitch) @ rot_x(roll)
+
+def gimbal_lock_metric(pitch):
+    return abs(np.cos(pitch))
+
+if __name__ == "__main__":
+    R = rpy_matrix(np.deg2rad(30), np.deg2rad(90), np.deg2rad(45))
+    print(np.round(R, 3))
+    print("metric:", round(float(gimbal_lock_metric(np.deg2rad(90))), 6))`,
+  testCode: `import numpy as np
+from euler_angle_gimbal_lock import rpy_matrix, gimbal_lock_metric
+
+def test_identity():
+    assert np.allclose(rpy_matrix(0.0, 0.0, 0.0), np.eye(3))
+
+def test_yaw_rotates_x_to_y():
+    out = rpy_matrix(0.0, 0.0, np.pi / 2) @ np.array([1.0, 0.0, 0.0])
+    assert np.allclose(out, [0.0, 1.0, 0.0], atol=1e-6)
+
+def test_gimbal_lock_metric_zero_at_pitch_90():
+    assert gimbal_lock_metric(np.pi / 2) < 1e-12
+
+def test_rotation_matrix_is_orthonormal():
+    R = rpy_matrix(0.2, 0.3, 0.4)
+    assert np.allclose(R.T @ R, np.eye(3), atol=1e-9)`,
+  expectedOutput: "[[ 0.    -0.259  0.966]\n [ 0.     0.966  0.259]\n [-1.     0.     0.   ]]\nmetric: 0.0",
+  runCommand: "python euler_angle_gimbal_lock.py && pytest test_euler_angle_gimbal_lock.py",
+  commonBugs: [
+    "Rz @ Ry @ Rx 대신 Rx @ Ry @ Rz를 써 회전 순서가 바뀜",
+    "degree 값을 radian 변환 없이 np.sin/cos에 넣음",
+    "pitch=90도 근처에서 yaw와 roll 축이 겹치는 gimbal lock을 무시함",
+  ],
+  extensionTask: "pitch를 80도부터 100도까지 sweep하고 gimbal_lock_metric=|cos(pitch)|를 표로 출력하라.",
+});
+
 const robotMathSessionsRest: Session[] = [
   session({
     id: "robot_math_3d_rotation_so3",
@@ -744,7 +825,70 @@ const robotMathSessionsRest: Session[] = [
       designAnswer: "센서 fusion 출력 직후와 제어 명령으로 보내기 전에 넣는다.",
     }),
     wrongAnswerTags: makeWrongTags("robot_math_3d_rotation_so3", "SO(3) 조건 오류", ["robot_math_2d_rotation_matrix"]),
-    nextSessions: ["robot_math_homogeneous_transform_se3", "robot_math_quaternion_slerp"],
+    nextSessions: ["robot_math_euler_angle_gimbal_lock", "robot_math_homogeneous_transform_se3", "robot_math_quaternion_slerp"],
+  }),
+  session({
+    id: "robot_math_euler_angle_gimbal_lock",
+    part,
+    title: "Euler Angle and Gimbal Lock",
+    level: "beginner",
+    prerequisites: ["robot_math_3d_rotation_so3"],
+    learningObjectives: [
+      "roll-pitch-yaw 회전 순서가 결과를 바꾼다는 점을 설명한다.",
+      "R=Rz(yaw)Ry(pitch)Rx(roll) 합성을 코드로 구현한다.",
+      "pitch가 90도 근처일 때 yaw와 roll 자유도가 겹치는 gimbal lock을 진단한다.",
+    ],
+    theory: {
+      definition: "Euler angle은 3D 자세를 roll, pitch, yaw 세 각도로 표현하는 방식이며, 축 순서에 따라 서로 다른 회전을 만든다.",
+      whyItMatters: "로봇팔 teach pendant, 드론 로그, 카메라 자세 디버깅에서 Euler angle이 자주 보이지만, 그대로 보간하거나 IK 목표로 쓰면 gimbal lock과 축 순서 오류가 생길 수 있다.",
+      intuition: "상자를 먼저 굴리고, 그다음 고개를 들고, 마지막으로 돌리는 식이다. 세 동작은 순서를 바꾸면 같은 자세가 되지 않는다.",
+      equations: [
+        makeEquation("Yaw-pitch-roll composition", "R=R_z(\\psi)R_y(\\theta)R_x(\\phi)", [["\\phi", "roll"], ["\\theta", "pitch"], ["\\psi", "yaw"]], "오른쪽의 roll이 먼저 적용되고 yaw가 마지막으로 적용된다."),
+        makeEquation("Gimbal lock indicator", "|\\cos(\\theta)| \\to 0", [["\\theta", "pitch angle"]], "pitch가 ±90도에 가까우면 yaw와 roll 축이 사실상 겹친다."),
+      ],
+      derivation: [
+        step("축별 회전 정의", "Rx, Ry, Rz를 각각 SO(3) 회전행렬로 만든다."),
+        step("순서대로 합성", "yaw-pitch-roll convention에서는 Rz @ Ry @ Rx를 사용한다.", "R=R_zR_yR_x"),
+        step("특이 자세 확인", "pitch=±90도이면 cos(pitch)=0이 되어 yaw와 roll을 독립적으로 구분하기 어렵다."),
+        step("quaternion 연결", "보간과 제어 명령에는 Euler 대신 quaternion 또는 rotation matrix를 사용해 singularity를 피한다."),
+      ],
+      handCalculation: {
+        problem: "roll=0, pitch=0, yaw=90도일 때 x축 벡터 [1,0,0]은?",
+        given: { roll: 0, pitch: 0, yaw: "pi/2", vector: "[1,0,0]" },
+        steps: ["Ry와 Rx는 identity", "R=Rz(pi/2)", "Rz(pi/2)[1,0,0]=[0,1,0]"],
+        answer: "[0,1,0]",
+      },
+      robotApplication: "MoveIt pose target을 Euler angle로 표시할 수는 있지만 내부 보간은 quaternion으로 처리해야 wrist 자세가 pitch 90도 근처에서 갑자기 뒤집히지 않는다.",
+    },
+    codeLabs: [eulerAngleLab],
+    visualizations: [
+      makeVisualization("vis_euler_angle_gimbal_lock", "Euler Angle Gimbal Lock", "robot_math_euler_angle_gimbal_lock", "R=Rz(yaw)Ry(pitch)Rx(roll)", eulerAngleLab.id, [
+        { name: "roll_deg", symbol: "\\phi", min: -180, max: 180, default: 30, description: "roll angle" },
+        { name: "pitch_deg", symbol: "\\theta", min: -90, max: 90, default: 85, description: "pitch angle" },
+        { name: "yaw_deg", symbol: "\\psi", min: -180, max: 180, default: 45, description: "yaw angle" },
+      ], "pitch가 0도 근처이면 roll, pitch, yaw 축이 비교적 독립적으로 보인다.", "pitch가 ±90도에 가까우면 yaw/roll 효과가 겹쳐 gimbal lock 해석 위험이 커진다."),
+    ],
+    quizzes: makeCoreQuizzes({
+      id: "robot_math_euler_angle_gimbal_lock",
+      conceptTag: "robot_math_euler_angle_gimbal_lock",
+      reviewSession: "Euler Angle and Gimbal Lock",
+      conceptQuestion: "Euler angle에서 회전 순서가 중요한 이유는?",
+      conceptAnswer: "3D 회전행렬 곱은 교환법칙이 성립하지 않아 RxRyRz와 RzRyRx가 다른 자세를 만들기 때문이다.",
+      calculationQuestion: "roll=0, pitch=0, yaw=90도이면 [1,0,0]은 어디로 가는가?",
+      calculationAnswer: "z축 90도 회전이므로 [0,1,0]이 된다.",
+      codeQuestion: "yaw-pitch-roll convention의 NumPy 합성 한 줄은?",
+      codeAnswer: "R = rot_z(yaw) @ rot_y(pitch) @ rot_x(roll)",
+      debugQuestion: "시각화에서 pitch=90도 근처에 경고가 뜨는 이유는?",
+      debugAnswer: "yaw와 roll 축이 겹쳐 gimbal lock이 생기고 자세 해석이 불안정해지기 때문이다.",
+      visualQuestion: "pitch 슬라이더가 90도에 가까워질수록 gimbal lock metric은 어떻게 되는가?",
+      visualAnswer: "|cos(pitch)|가 0에 가까워진다.",
+      robotQuestion: "로봇팔 orientation waypoint를 Euler angle로 선형 보간하면 위험한 이유는?",
+      robotAnswer: "gimbal lock과 축 순서 불연속 때문에 wrist 자세가 갑자기 뒤집힐 수 있다.",
+      designQuestion: "Euler angle UI와 quaternion API를 함께 쓸 때 필요한 방어 장치는?",
+      designAnswer: "UI에는 convention(RPY 순서)을 명시하고 내부 API에는 quaternion 정규화, q/-q 짧은 경로, 회전행렬 검증을 둔다.",
+    }),
+    wrongAnswerTags: makeWrongTags("robot_math_euler_angle_gimbal_lock", "Euler angle 순서/gimbal lock 오류", ["robot_math_3d_rotation_so3"]),
+    nextSessions: ["robot_math_quaternion_slerp", "quaternion_so3_slerp", "robot_math_homogeneous_transform_se3"],
   }),
   session({
     id: "robot_math_homogeneous_transform_se3",
@@ -811,17 +955,19 @@ const robotMathSessionsRest: Session[] = [
     title: "Quaternion and SLERP",
     level: "intermediate",
     prerequisites: ["robot_math_3d_rotation_so3", "unit_circle_trigonometry"],
-    learningObjectives: ["quaternion이 3D 회전을 표현하는 이유를 설명한다.", "SLERP로 일정한 회전 보간을 구현한다.", "q와 -q가 같은 자세임을 코드에서 처리한다."],
+    learningObjectives: ["quaternion이 3D 회전을 표현하는 이유를 설명한다.", "Hamilton product로 회전 합성 순서를 전개한다.", "SLERP로 일정한 회전 보간을 구현한다.", "q와 -q가 같은 자세임을 코드에서 처리한다."],
     theory: {
       definition: "Quaternion은 4개 숫자 [w,x,y,z]로 3D 회전을 표현하고, SLERP는 두 자세 사이를 구면 위에서 부드럽게 보간한다.",
       whyItMatters: "로봇팔 자세 보간, 드론 자세 제어, 카메라 orientation smoothing에서 Euler angle의 gimbal lock을 피해야 한다.",
       intuition: "지구본 표면에서 두 도시 사이를 직선으로 뚫지 않고 표면 위 최단 경로로 걷는 보간이라고 생각하면 된다.",
       equations: [
         makeEquation("Unit quaternion", "||q||=1", [["q", "[w,x,y,z] quaternion"]], "회전 quaternion은 길이가 1이어야 한다."),
+        makeEquation("Hamilton product", "q_a⊗q_b=[a_wb_w-a_v·b_v, a_wb_v+b_wa_v+a_v×b_v]", [["a_v,b_v", "vector parts [x,y,z]"], ["⊗", "quaternion composition"]], "q_b 회전을 먼저 적용한 뒤 q_a 회전을 합성한다."),
         makeEquation("SLERP", "slerp(q0,q1,t)=sin((1-t)Omega)/sin(Omega) q0 + sin(t Omega)/sin(Omega) q1", [["Omega", "angle between q0 and q1"], ["t", "0 to 1 interpolation ratio"]], "구면 위에서 일정한 각속도로 보간한다."),
       ],
       derivation: [
         step("단위 길이 유지", "회전 quaternion은 4D unit sphere 위에 있어야 한다.", "||q||=1"),
+        step("회전 합성", "RPY convention은 q_yaw⊗q_pitch⊗q_roll처럼 순서가 드러나야 한다."),
         step("두 quaternion 사이 각도", "dot(q0,q1)=cos(Omega)로 구면 각도를 얻는다."),
         step("구면 보간 가중치", "sin 비율을 사용해 구면 위 경로를 따라간다."),
         step("짧은 경로 선택", "dot<0이면 q1을 -q1로 바꿔 같은 자세의 짧은 표현을 선택한다."),
@@ -845,8 +991,8 @@ const robotMathSessionsRest: Session[] = [
       id: "robot_math_quaternion_slerp",
       conceptTag: "robot_math_quaternion_slerp",
       reviewSession: "Quaternion and SLERP",
-      conceptQuestion: "회전 quaternion이 반드시 만족해야 하는 조건은?",
-      conceptAnswer: "길이 norm이 1이어야 한다.",
+      conceptQuestion: "회전 quaternion이 반드시 만족해야 하는 조건과 곱셈에서 주의할 점은?",
+      conceptAnswer: "길이 norm이 1이어야 하고, Hamilton product는 순서가 바뀌면 다른 회전 합성이 된다.",
       calculationQuestion: "identity와 z축 180도 quaternion의 중간 t=0.5는?",
       calculationAnswer: "[sqrt(0.5),0,0,sqrt(0.5)]이다.",
       codeQuestion: "SLERP 시작 전에 q0, q1에 해야 하는 일은?",
@@ -869,7 +1015,7 @@ const robotMathSessionsRest: Session[] = [
     title: "DH Parameter",
     level: "intermediate",
     prerequisites: ["robot_math_homogeneous_transform_se3"],
-    learningObjectives: ["DH 표의 a, alpha, d, theta 의미를 구분한다.", "link transform을 순서대로 곱해 말단 pose를 계산한다.", "로봇팔 URDF와 kinematic chain의 관계를 설명한다."],
+    learningObjectives: ["실제 로봇 축 그림에서 DH 표의 a, alpha, d, theta를 읽는다.", "link transform을 순서대로 곱해 말단 pose를 계산한다.", "로봇팔 URDF와 kinematic chain의 관계를 설명한다.", "DH와 POE가 같은 FK를 다른 좌표 convention으로 표현함을 비교한다."],
     theory: {
       definition: "DH Parameter는 로봇팔의 이웃한 링크 사이 기하 관계를 a, alpha, d, theta 네 값으로 표준화해 쓰는 방법이다.",
       whyItMatters: "로봇팔 FK를 손으로 계산하거나 오래된 매니퓰레이터 문서를 읽을 때 DH 표가 가장 흔한 출발점이다.",
@@ -879,10 +1025,11 @@ const robotMathSessionsRest: Session[] = [
         makeEquation("Chain", "T_0^n=A_1 A_2 ... A_n", [["A_i", "i번째 link transform"], ["T_0^n", "base에서 end-effector까지 transform"]], "각 link transform을 base에서 끝까지 순서대로 곱한다."),
       ],
       derivation: [
-        step("z축 관절 회전", "revolute joint는 theta_i만큼 z축으로 돈다."),
-        step("z축 offset", "다음 link까지 d_i만큼 z축으로 이동한다."),
-        step("x축 link length", "공통 법선 방향으로 a_i만큼 이동한다."),
-        step("x축 twist", "다음 z축과 맞추기 위해 alpha_i만큼 비튼다."),
+        step("z축 관절 회전", "revolute joint는 theta_i만큼 z_i축으로 돈다. 실제 로봇에서는 joint axis 화살표가 z_i다."),
+        step("z축 offset", "같은 z_i 축을 따라 다음 공통 법선이 시작되는 지점까지 d_i만큼 이동한다."),
+        step("x축 link length", "두 관절 z축 사이 최단거리인 공통 법선 방향이 x_i이고, 그 길이가 a_i다."),
+        step("x축 twist", "x_i 축을 기준으로 z_i가 z_{i+1}와 평행해질 때까지 alpha_i만큼 비튼다."),
+        step("POE와 비교", "DH는 link frame을 먼저 정하고 A_i를 곱지만, POE는 home pose M과 screw axis S_i를 먼저 정해 같은 T_0^n을 만든다."),
       ],
       handCalculation: {
         problem: "a1=1, a2=1, 모든 alpha,d,theta가 0이면 2-link 말단 위치는?",
@@ -916,8 +1063,8 @@ const robotMathSessionsRest: Session[] = [
       visualAnswer: "현재 link의 z축 기준 회전이 보인다.",
       robotQuestion: "로봇팔 모델에서 DH 표가 필요한 이유는?",
       robotAnswer: "관절값에서 end-effector pose를 계산하는 kinematic chain을 만들기 위해서다.",
-      designQuestion: "DH와 URDF를 함께 쓸 때 검증해야 할 것은?",
-      designAnswer: "joint axis, origin transform, link length가 같은 좌표 convention인지 검증한다.",
+      designQuestion: "DH, POE, URDF를 함께 쓸 때 검증해야 할 것은?",
+      designAnswer: "joint axis, origin transform, link length, home pose가 같은 좌표 convention인지 확인하고 FK 결과가 일치하는 테스트를 둔다.",
     }),
     wrongAnswerTags: makeWrongTags("robot_math_dh_parameter", "DH parameter 축/순서 오류", ["robot_math_homogeneous_transform_se3"]),
     nextSessions: ["robot_math_forward_kinematics", "robot_math_product_of_exponentials"],
@@ -932,15 +1079,18 @@ const robotMathSessionsRest: Session[] = [
     theory: {
       definition: "Product of Exponentials는 각 관절의 screw motion exponential을 곱해 로봇팔의 forward kinematics를 표현하는 방법이다.",
       whyItMatters: "복잡한 3D 로봇팔에서는 DH보다 screw axis 기반 표현이 깔끔하고 modern robotics, MoveIt2 이해에 도움이 된다.",
-      intuition: "각 관절이 만드는 작은 회전/이동 마법 스탬프를 순서대로 찍으면 마지막 손 위치가 나온다고 생각하면 된다.",
+      intuition: "각 관절이 만드는 screw motion을 순서대로 누적한 뒤, 마지막에 home pose M을 붙이면 손 위치가 나온다고 생각하면 된다.",
       equations: [
         makeEquation("POE FK", "T(theta)=e^[S1 theta1] e^[S2 theta2] ... e^[Sn thetan] M", [["S_i", "space screw axis"], ["theta_i", "joint variable"], ["M", "home pose"]], "home pose에 각 joint motion을 순서대로 적용한다."),
+        makeEquation("DH vs POE", "A_1(theta_1)...A_n(theta_n)=e^[S1 theta1]...e^[Sn thetan]M", [["A_i", "DH link transform"], ["S_i", "space screw axis"], ["M", "zero-joint home pose"]], "같은 robot과 같은 zero pose를 쓰면 두 FK 표현의 T가 일치해야 한다."),
         makeEquation("Rodrigues", "R=e^[w]theta=I+sin(theta)[w]+(1-cos(theta))[w]^2", [["w", "unit angular axis"], ["[w]", "skew matrix"]], "회전 exponential은 Rodrigues 공식으로 계산한다."),
       ],
       derivation: [
         step("관절 운동을 twist로 표현", "revolute는 w와 v=-w x q로 screw axis를 만든다."),
+        step("DH zero pose와 맞추기", "DH table의 모든 joint variable을 0으로 둔 T_0^n을 POE의 home pose M으로 잡는다."),
         step("twist exponential 계산", "w가 있으면 Rodrigues와 G(theta)v로 SE(3)을 만든다."),
         step("home pose 적용", "모든 관절 motion을 곱한 뒤 M을 곱한다."),
+        step("DH 결과와 검산", "같은 theta에서 DH의 A_1...A_n과 POE 결과의 translation/orientation을 비교한다."),
         step("space/body convention 확인", "space screw인지 body screw인지에 따라 곱 순서와 축이 달라진다."),
       ],
       handCalculation: {
@@ -974,8 +1124,8 @@ const robotMathSessionsRest: Session[] = [
       visualAnswer: "축 주변 회전 또는 축 방향 이동이 더 크게 누적된다.",
       robotQuestion: "POE가 로봇팔 제어에 필요한 이유는?",
       robotAnswer: "joint motion에서 end-effector pose와 Jacobian을 일관되게 유도하기 위해서다.",
-      designQuestion: "space screw와 body screw API를 설계할 때 필요한 방어 장치는?",
-      designAnswer: "함수 이름에 convention을 명시하고, 같은 robot으로 FK 결과가 일치하는 테스트를 둔다.",
+      designQuestion: "DH와 POE API를 함께 설계할 때 필요한 방어 장치는?",
+      designAnswer: "함수 이름에 convention을 명시하고, 같은 robot과 같은 zero pose에서 FK 결과가 일치하는 테스트를 둔다.",
     }),
     wrongAnswerTags: makeWrongTags("robot_math_product_of_exponentials", "POE screw axis 오류", ["robot_math_homogeneous_transform_se3", "robot_math_dh_parameter"]),
     nextSessions: ["robot_math_forward_kinematics", "robot_math_jacobian_velocity_kinematics"],

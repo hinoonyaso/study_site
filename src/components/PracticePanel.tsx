@@ -5,6 +5,7 @@ import { python as pythonLanguage } from "@codemirror/lang-python";
 import { CheckCircle2, ClipboardCheck, Download, Eye, RotateCcw, Terminal, XCircle } from "lucide-react";
 import { CodeLabBlock } from "./CodeLabBlock";
 import { ExecutableLab } from "./ExecutableLab";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { exportRos2Workspace } from "../utils/exportPkg";
 import type { LessonSection, PracticeBlock } from "../types";
 
@@ -186,9 +187,15 @@ export function PracticePanel({ section, savedCode, onSaveCode }: PracticePanelP
         </div>
         <div className="content-grid">
           {section.v2Session.codeLabs.map((lab) => (
-            <CodeLabBlock key={lab.id} lab={lab} />
+            <ErrorBoundary key={lab.id}>
+              <CodeLabBlock lab={lab} />
+            </ErrorBoundary>
           ))}
-          {section.cppPractice.executableJsStarter && <ExecutableLab section={section} />}
+          {section.cppPractice.executableJsStarter && (
+            <ErrorBoundary>
+              <ExecutableLab section={section} />
+            </ErrorBoundary>
+          )}
         </div>
       </section>
     );
@@ -213,7 +220,11 @@ export function PracticePanel({ section, savedCode, onSaveCode }: PracticePanelP
         </button>
       </div>
       <PracticeBlockView block={block} code={code} language={language} onChange={(nextCode) => onSaveCode(language, nextCode)} onExport={() => exportRos2Workspace(section.id, language, code)} />
-      {section.cppPractice.executableJsStarter && <ExecutableLab section={section} />}
+      {section.cppPractice.executableJsStarter && (
+        <ErrorBoundary>
+          <ExecutableLab section={section} />
+        </ErrorBoundary>
+      )}
     </section>
   );
 }

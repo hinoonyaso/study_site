@@ -119,14 +119,14 @@ export const svdJacobianApplicationSessions: Session[] = [
     lab: svdJacobianLab,
     visualization: {
       id: "vis_svd_jacobian_spectrum",
-      title: "Jacobian Singular Value Spectrum",
-      equation: "kappa=sigma_max/sigma_min",
+      title: "Jacobian Manipulability Ellipse and Singular Value Spectrum",
+      equation: "w=sqrt(det(JJ^T))=prod(sigma), kappa=sigma_max/sigma_min",
       parameters: [
         { name: "q2_deg", symbol: "q_2", min: -180, max: 180, default: 10, description: "elbow angle" },
         { name: "damping", symbol: "\\lambda", min: 0, max: 0.5, default: 0.1, description: "DLS damping" },
       ],
-      normalCase: "두 singular value가 충분히 크면 full-rank로 안정적인 IK가 가능하다.",
-      failureCase: "q2가 0도에 가까우면 σ_min이 0에 가까워져 condition number가 폭증한다.",
+      normalCase: "두 singular value가 충분히 크면 manipulability ellipse 면적이 유지되고 full-rank IK가 가능하다.",
+      failureCase: "q2가 0도에 가까우면 σ_min과 manipulability가 0에 가까워져 ellipse가 선분으로 붕괴하고 condition number가 폭증한다.",
     },
     quiz: {
       id: "svd_jacobian",

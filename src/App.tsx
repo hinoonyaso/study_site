@@ -12,7 +12,9 @@ import {
   PanelsTopLeft,
   Route,
   X,
+  AlertTriangle,
 } from "lucide-react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AssessmentReportPanel } from "./components/AssessmentReportPanel";
 import { FlashcardPanel } from "./components/FlashcardPanel";
 import { NotesEditor } from "./components/NotesEditor";
@@ -36,14 +38,22 @@ import { emptyProgress, type ProgressState, type SrsCard, type WrongAnswerEntry 
 
 const storageKey = "physical-ai-study-progress-v1";
 const onboardingKey = "physical-ai-onboarding-seen-v1";
+const lastSessionKey = "physical-ai-last-session-v1";
 
 function AppContent() {
   const { progress, isLoaded, logStudy, toggleSection, toggleChecklist, saveUserCode, saveQuizAnswer, resetQuizAnswers, saveQuizScore, saveNote, updateSrsCard, recordWrongAnswers, clearWrongAnswers, resetProgress, overwriteProgress } = useProgress();
 
   if (!isLoaded) return <div className="app-shell" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>데이터 불러오는 중...</div>;
-  const [selectedModuleId, setSelectedModuleId] = useState(curriculum[0].id);
-  const [selectedSectionId, setSelectedSectionId] = useState(curriculum[0].sections[0].id);
+  
+  const [lastSession, setLastSession] = useLocalStorage<{ moduleId: string; sectionId: string } | null>(lastSessionKey, null);
+  
+  const [selectedModuleId, setSelectedModuleId] = useState(lastSession?.moduleId ?? curriculum[0].id);
+  const [selectedSectionId, setSelectedSectionId] = useState(lastSession?.sectionId ?? curriculum[0].sections[0].id);
   const [activeTab, setActiveTab] = useState<ActiveTab>("theory");
+
+  useEffect(() => {
+    setLastSession({ moduleId: selectedModuleId, sectionId: selectedSectionId });
+  }, [selectedModuleId, selectedSectionId, setLastSession]);
   const [splitMode, setSplitMode] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => window.localStorage.getItem(onboardingKey) !== "1");
   const visitRef = useRef({ sectionId: curriculum[0].sections[0].id, startedAt: Date.now() });
@@ -170,6 +180,37 @@ function AppContent() {
     }
   }, [allSections, selectedSectionId]);
 
+  // Task 3: Hash-based URL Routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#/", "");
+      if (!hash) return;
+      
+      const [sectionId, tab] = hash.split("/");
+      if (sectionId) {
+        const matchedModule = curriculum.find(m => m.sections.some(s => s.id === sectionId));
+        if (matchedModule) {
+          setSelectedModuleId(matchedModule.id);
+          setSelectedSectionId(sectionId);
+        }
+      }
+      if (tab) {
+        setActiveTab(tab as ActiveTab);
+      }
+    };
+
+    handleHashChange(); // Initial load
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    const newHash = `#/${selectedSectionId}/${activeTab}`;
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, "", newHash);
+    }
+  }, [selectedSectionId, activeTab]);
+
   useKeyboardShortcuts({
     setTab: setActiveTab,
     nextSection: goNextSection,
@@ -200,7 +241,7 @@ function AppContent() {
               </div>
             </div>
             <div className="onboarding-options">
-              <button className="onboarding-card" onClick={dismissOnboarding} type="button">
+              <button className="onboarding-card" onClick={() => jumpToFirstMatch((id) => id.includes("vector_matrix_inverse"))} type="button">
                 <BookOpen size={20} aria-hidden />
                 <strong>전체 커리큘럼</strong>
                 <span>Part 1부터 차근차근 시작</span>
@@ -281,15 +322,24 @@ function AppContent() {
               </span>
               <select
                 onChange={(event) => {
-                  setSelectedSectionId(event.target.value);
-                  setActiveTab("theory");
+                  const sectionId = event.target.value;
+                  const parentModule = curriculum.find(m => m.sections.some(s => s.id === sectionId));
+                  if (parentModule) {
+                    setSelectedModuleId(parentModule.id);
+                    setSelectedSectionId(sectionId);
+                    setActiveTab("theory");
+                  }
                 }}
                 value={currentSection.id}
               >
-                {currentModule.sections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.title}
-                  </option>
+                {curriculum.map((module) => (
+                  <optgroup key={module.id} label={module.title}>
+                    {module.sections.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.title}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -323,9 +373,7 @@ function AppContent() {
                 Physical AI 학습 경로
               </div>
               <h2>수학 → 로봇수학 → 제어 → 자율주행 → AI/VLA → 실전 프로젝트</h2>
-              <p>
-                목적별 진입점을 고르거나 아래 Part 로드맵에서 현재 위치와 완료율을 확인할 수 있습니다.
-              </p>
+              <p>목적별 진입점을 고르거나 아래 Part 로드맵에서 현재 위치와 완료율을 확인할 수 있습니다.</p>
             </div>
             <div className="mobile-progress-summary" aria-label="전체 진행률 요약">
               <strong>{totalCompletion}%</strong>
@@ -464,11 +512,13 @@ function AppContent() {
           {(activeTab === "theory" || splitMode) && (
             <div className="split-left">
               <TheoryPanel section={currentSection} />
-              <NotesEditor
-                sectionId={currentSection.id}
-                value={(progress.notes ?? {})[currentSection.id] ?? ""}
-                onSave={saveNote}
-              />
+              {activeTab === "theory" && (
+                <NotesEditor
+                  sectionId={currentSection.id}
+                  value={(progress.notes ?? {})[currentSection.id] ?? ""}
+                  onSave={saveNote}
+                />
+              )}
             </div>
           )}
           
@@ -498,18 +548,62 @@ function AppContent() {
               />
             )}
             {activeTab === "visual" && (
-              <Suspense fallback={<div className="loading-state" style={{ padding: "2rem", textAlign: "center" }}>시각화 도구를 불러오는 중...</div>}>
-                <VisualizerHub id={currentSection.visualizerId} section={currentSection} />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="visual-loading">시각화 엔진 준비 중...</div>}>
+                  <VisualizerHub id={currentSection.visualizerId} section={currentSection} />
+                </Suspense>
+              </ErrorBoundary>
+            )}
+            {activeTab === "progress" && (
+              <div className="panel-container">
+                <ProgressPanel
+                  currentModule={currentModule}
+                  currentSection={currentSection}
+                  modules={curriculum}
+                  onImport={overwriteProgress}
+                  onReset={resetProgress}
+                  onToggleChecklist={toggleChecklist}
+                  onToggleSection={toggleSection}
+                  progress={progress}
+                />
+                <StatsPanel modules={curriculum} progress={progress} />
+              </div>
+            )}
+            {activeTab === "assessment" && (
+              <AssessmentReportPanel modules={curriculum} onOpenReviewTarget={openReviewTarget} progress={progress} />
+            )}
+            {activeTab === "flashcard" && (
+              <div className="panel-container">
+                <FlashcardPanel modules={curriculum} progress={progress} onUpdateCard={updateSrsCard} />
+                <WrongAnswerNote modules={curriculum} onOpenReviewTarget={openReviewTarget} wrongAnswers={progress.wrongAnswers ?? []} />
+              </div>
+            )}
+            {activeTab === "sources" && (
+              <SourceCatalogPanel section={currentSection} />
+            )}
+            {activeTab === "notes" && (
+              <div className="panel-container full-height-panel">
+                <NotesEditor
+                  sectionId={currentSection.id}
+                  value={(progress.notes ?? {})[currentSection.id] ?? ""}
+                  onSave={saveNote}
+                />
+              </div>
             )}
           </div>
         </div>
 
         <nav className="session-nav" aria-label="세션 이동">
-          <button className="nav-step-button" disabled={!previousSection} onClick={goPrevSection} type="button">
+          <button
+            aria-label={previousSection ? `이전 세션: ${previousSection.title}` : "첫 세션입니다"}
+            className="nav-step-button"
+            disabled={!previousSection}
+            onClick={goPrevSection}
+            type="button"
+          >
             <ArrowLeft size={20} aria-hidden />
             <div className="nav-text-block">
-              <small>이전 세션</small>
+              <small>이전:</small>
               <strong>{previousSection?.title ?? "첫 세션"}</strong>
             </div>
           </button>
@@ -517,9 +611,15 @@ function AppContent() {
             <strong>{currentSectionIndex + 1}</strong>
             <span>/ {allSections.length}</span>
           </div>
-          <button className="nav-step-button is-next" disabled={!nextSection} onClick={goNextSection} type="button">
+          <button
+            aria-label={nextSection ? `다음 세션: ${nextSection.title}` : "마지막 세션입니다"}
+            className="nav-step-button is-next"
+            disabled={!nextSection}
+            onClick={goNextSection}
+            type="button"
+          >
             <div className="nav-text-block">
-              <small>다음 세션</small>
+              <small>다음:</small>
               <strong>{nextSection?.title ?? "마지막 세션"}</strong>
             </div>
             <ArrowRight size={20} aria-hidden />
@@ -539,10 +639,6 @@ function AppContent() {
           progress={progress}
         />
         <SourceCatalogPanel section={currentSection} />
-        <StatsPanel modules={curriculum} progress={progress} />
-        <AssessmentReportPanel modules={curriculum} onOpenReviewTarget={openReviewTarget} progress={progress} />
-        <FlashcardPanel modules={curriculum} progress={progress} onUpdateCard={updateSrsCard} />
-        <WrongAnswerNote modules={curriculum} onOpenReviewTarget={openReviewTarget} wrongAnswers={progress.wrongAnswers ?? []} />
       </aside>
     </div>
   );

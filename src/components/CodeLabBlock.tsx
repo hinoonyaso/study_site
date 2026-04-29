@@ -1,5 +1,6 @@
 import { useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
+import { cpp as cppLanguage } from "@codemirror/lang-cpp";
 import { python as pythonLanguage } from "@codemirror/lang-python";
 import { Bug, Check, CheckCircle2, Code2, Copy, ExternalLink, Loader2, Play, Terminal, TestTube2 } from "lucide-react";
 import type { CodeLab } from "../types";
@@ -32,11 +33,21 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
   const [godboltStatus, setGodboltStatus] = useState<"idle" | "loading" | "copied">("idle");
 
   const code = activeTab === "starter" ? lab.starterCode : activeTab === "solution" ? lab.solutionCode : lab.testCode;
-  const codeToRun = activeTab === "starter" ? editableCode : code;
+  const visibleCode = activeTab === "starter" ? editableCode : code;
+  const codeToRun = visibleCode;
   const browserPythonSupport = lab.language === "python" ? getBrowserPythonSupport(codeToRun) : null;
+  const cppChecks =
+    lab.language === "cpp"
+      ? [
+          { label: "브라우저 안에서 C++ 코드를 직접 편집함", passed: editableCode.trim() !== lab.starterCode.trim() },
+          { label: "TODO 또는 빈 구현 제거", passed: !/TODO|pass|NotImplemented/i.test(editableCode) },
+          { label: "return 문 포함", passed: /\breturn\b/.test(editableCode) },
+          { label: "main 또는 테스트 대상 함수 유지", passed: /\bmain\s*\(|\b[a-zA-Z_][a-zA-Z0-9_]*\s*\(/.test(editableCode) },
+        ]
+      : [];
 
   const copyCode = async () => {
-    await navigator.clipboard.writeText(code);
+    await navigator.clipboard.writeText(visibleCode);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   };
@@ -54,7 +65,7 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
 
   const handleOpenGodbolt = async () => {
     setGodboltStatus("loading");
-    await openInGodbolt(code);
+    await openInGodbolt(visibleCode);
     setGodboltStatus("copied");
     window.setTimeout(() => setGodboltStatus("idle"), 2000);
   };
@@ -160,11 +171,11 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
           <strong>⚠️ 이 코드는 Colab에서 실행하세요</strong>
         </div>
       )}
-      {lab.language === "python" && activeTab === "starter" ? (
+      {(lab.language === "python" || lab.language === "cpp") && activeTab === "starter" ? (
         <CodeMirror
           basicSetup={{ bracketMatching: true, foldGutter: false, highlightActiveLine: true, lineNumbers: true }}
           className="code-editor"
-          extensions={[pythonLanguage()]}
+          extensions={lab.language === "cpp" ? [cppLanguage()] : [pythonLanguage()]}
           height="300px"
           onChange={setEditableCode}
           theme="dark"
@@ -174,6 +185,17 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
         <pre className="code-block solution-block">
           <code>{code}</code>
         </pre>
+      )}
+
+      {cppChecks.length > 0 && activeTab === "starter" && (
+        <div className="check-results">
+          {cppChecks.map((check) => (
+            <div className={check.passed ? "check-result passed" : "check-result"} key={check.label}>
+              {check.passed ? <CheckCircle2 size={16} aria-hidden /> : <Bug size={16} aria-hidden />}
+              <span>{check.label}</span>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Python 실행 출력 */}
@@ -209,8 +231,8 @@ export function CodeLabBlock({ lab }: { lab: CodeLab }) {
           </p>
         ) : lab.language === "cpp" ? (
           <p>
-            <strong>Compiler Explorer</strong> 버튼을 누르면 코드가 클립보드에 복사되고 Eigen 3.4가 설정된 Godbolt로 이동합니다.
-            에디터에 <kbd>Ctrl+V</kbd>로 붙여넣은 뒤 실행하세요. 로컬 실행:
+            위 C++ 에디터에서 코드를 수정하면 브라우저 안에서 구조 검사를 바로 확인할 수 있습니다. <strong>Compiler Explorer</strong> 버튼을 누르면
+            현재 탭의 코드가 클립보드에 복사되고 Eigen 3.4가 설정된 Godbolt로 이동합니다. 로컬 실행:
           </p>
         ) : (
           <p>브라우저 내 실행은 JavaScript 실습에서 제공됩니다.</p>

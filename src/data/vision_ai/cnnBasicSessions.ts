@@ -64,6 +64,95 @@ def test_conv_value():
   extensionTask: "Sobel edge kernel을 적용해 수평/수직 edge feature map을 시각화하라.",
 };
 
+const browserOnnxTinyCnnLab = {
+  id: "lab_browser_onnx_tiny_cnn",
+  title: "Browser Tiny CNN ONNX-style Inference",
+  language: "javascript" as const,
+  theoryConnection: "input[NCHW] -> Conv/ReLU -> GAP -> Dense logits -> softmax",
+  starterCode: `const weights = {
+  classes: ["empty", "lane", "box"],
+  dense: [
+    [-1.1, -0.8, -0.55],
+    [1.25, 0.1, -0.25],
+    [0.35, 0.65, 1.1],
+  ],
+  bias: [0.85, -0.18, -0.32],
+};
+
+function softmax(logits) {
+  // TODO: numerically stable softmax를 구현하라.
+  throw new Error("TODO");
+}
+
+function inferFromPooled(pooled) {
+  // TODO: pooled feature 3개를 dense layer에 넣고 top class를 반환하라.
+  throw new Error("TODO");
+}
+
+if (require.main === module) {
+  const result = inferFromPooled([0.28, 0.36, 0.72]);
+  console.log("class:", result.label);
+}
+
+module.exports = { softmax, inferFromPooled };`,
+  solutionCode: `const weights = {
+  classes: ["empty", "lane", "box"],
+  dense: [
+    [-1.1, -0.8, -0.55],
+    [1.25, 0.1, -0.25],
+    [0.35, 0.65, 1.1],
+  ],
+  bias: [0.85, -0.18, -0.32],
+};
+
+function softmax(logits) {
+  const maxLogit = Math.max(...logits);
+  const exp = logits.map((value) => Math.exp(value - maxLogit));
+  const sum = exp.reduce((acc, value) => acc + value, 0);
+  return exp.map((value) => value / sum);
+}
+
+function inferFromPooled(pooled) {
+  const logits = weights.dense.map((row, classIndex) =>
+    row.reduce((sum, weight, channelIndex) => sum + weight * pooled[channelIndex], weights.bias[classIndex]),
+  );
+  const probabilities = softmax(logits);
+  const topIndex = probabilities.reduce((best, value, index) => (value > probabilities[best] ? index : best), 0);
+  return {
+    label: weights.classes[topIndex],
+    confidence: probabilities[topIndex],
+    logits,
+  };
+}
+
+if (require.main === module) {
+  const result = inferFromPooled([0.28, 0.36, 0.72]);
+  console.log("class:", result.label);
+}
+
+module.exports = { softmax, inferFromPooled };`,
+  testCode: `const assert = require("assert");
+const { softmax, inferFromPooled } = require("./browser_tiny_onnx_cnn");
+
+const probs = softmax([1, 2, 3]);
+assert(Math.abs(probs.reduce((a, b) => a + b, 0) - 1) < 1e-9);
+
+const box = inferFromPooled([0.28, 0.36, 0.72]);
+assert.strictEqual(box.label, "box");
+assert(box.confidence > 0.38);
+
+const empty = inferFromPooled([0.02, 0.01, 0.03]);
+assert.strictEqual(empty.label, "empty");`,
+  expectedOutput: "class: box",
+  runCommand: "node browser_tiny_onnx_cnn.js && node test_browser_tiny_onnx_cnn.js",
+  commonBugs: [
+    "softmax에서 maxLogit을 빼지 않아 큰 logit에서 overflow가 남",
+    "NCHW/HWC layout 계약을 문서화하지 않아 브라우저 추론 입력 순서가 어긋남",
+    "feature map을 해석하지 않고 final class confidence만 확인함",
+  ],
+  extensionTask: "8x8 입력 grid를 직접 바꿔 lane/box/empty confidence가 어떻게 변하는지 기록하라.",
+};
+
 export const cnnBasicSessions: Session[] = [
   makeAdvancedSession({
     id: "cnn_conv2d_feature_map",
@@ -127,7 +216,78 @@ export const cnnBasicSessions: Session[] = [
       designAnswer: "latency budget, 입력 해상도, 작은 물체 recall, 하드웨어 가속 지원을 함께 본다.",
     },
     wrongTagLabel: "CNN feature map 크기·kernel 해석 오류",
-    nextSessions: ["semantic_segmentation_basics", "pinhole_camera_projection"],
+    nextSessions: ["browser_onnx_tiny_cnn_feature_demo", "semantic_segmentation_basics", "pinhole_camera_projection"],
+  }),
+  makeAdvancedSession({
+    id: "browser_onnx_tiny_cnn_feature_demo",
+    part: "Part 5. 인식 AI와 로봇 비전",
+    title: "Browser ONNX-style Tiny CNN Feature Demo",
+    level: "intermediate",
+    difficulty: "medium",
+    estimatedMinutes: 70,
+    prerequisites: ["cnn_conv2d_feature_map", "dataset_label_split_confusion_matrix_practice"],
+    objectives: [
+      "torch/cv2 없이 브라우저에서 정적 weight 기반 CNN 추론 흐름을 실행한다.",
+      "input layout, Conv feature map, GAP, Dense logits, softmax 계약을 단계별로 확인한다.",
+      "학습 단계는 Colab/PyTorch에 두고 브라우저에서는 배포 artifact 검증을 담당하도록 역할을 나눈다.",
+      "로봇 비전에서 낮은 confidence가 feature map 약화인지 후처리 threshold 문제인지 구분한다.",
+    ],
+    definition:
+      "브라우저 ONNX-style 데모는 MobileNet 같은 실제 edge CNN의 배포 계약을 작은 정적 weight 모델로 축소해 보여주는 실습이다. 무거운 학습 프레임워크 없이도 tensor shape, feature map, output parity를 확인한다.",
+    whyItMatters:
+      "PyTorch 학습 코드는 브라우저에서 실행하기 어렵다. 대신 학습된 artifact가 어떤 입력 계약과 feature map 해석을 갖는지 브라우저에서 확인하면 초보자가 학습과 배포 사이의 끊김을 덜 느낀다.",
+    intuition:
+      "Colab에서 큰 모델을 훈련하고, 브라우저에서는 그 모델의 작은 전시용 복제품으로 입력과 출력의 배관을 투명하게 보는 방식이다.",
+    equations: [
+      { label: "Conv feature", expression: "F_c(i,j)=\\max(0,\\sum X_{patch}K_c)", terms: [["F_c", "channel c feature map"], ["K_c", "정적 kernel"]], explanation: "각 channel kernel이 이미지 패턴을 점수 지도로 바꾼다." },
+      { label: "GAP", expression: "z_c=\\frac{1}{HW}\\sum_{i,j}F_c(i,j)", terms: [["z_c", "channel c pooled feature"], ["H,W", "feature map 크기"]], explanation: "공간 feature map을 class head 입력 벡터로 압축한다." },
+      { label: "Softmax", expression: "p_k=\\frac{e^{l_k}}{\\sum_j e^{l_j}}", terms: [["l_k", "class k logit"], ["p_k", "class probability"]], explanation: "Dense logits를 confidence로 해석한다." },
+    ],
+    derivation: [
+      ["tensor contract", "입력 이름, NCHW shape, dtype을 고정한다.", "image: float32[1,1,8,8]"],
+      ["feature extraction", "정적 3x3 kernel 3개로 edge/blob feature map을 만든다.", "Conv/ReLU"],
+      ["head inference", "GAP 결과를 dense head에 넣어 class logits를 계산한다.", "l=Wz+b"],
+      ["deployment gate", "confidence와 sensor noise가 허용 범위일 때만 다음 ROS 2 단계로 넘긴다.", "conf>tau"],
+    ],
+    handCalculation: {
+      problem: "pooled feature z=[0.28,0.36,0.72]일 때 box logit 계산 흐름을 설명하라.",
+      given: { z: "[0.28,0.36,0.72]", W_box: "[0.35,0.65,1.10]", b_box: -0.32 },
+      steps: ["l_box=0.35*0.28+0.65*0.36+1.10*0.72-0.32", "l_box=0.804", "softmax에서 가장 크면 box class가 된다."],
+      answer: "box logit은 약 0.804이며 softmax confidence 비교로 top class를 정한다.",
+    },
+    robotApplication:
+      "카메라 기반 pick/lane detector에서 브라우저 데모는 입력 밝기·노이즈가 feature map과 confidence를 어떻게 흔드는지 보여주고, 실제 모델은 ONNX Runtime/ROS 2 배포 세션으로 이어진다.",
+    lab: browserOnnxTinyCnnLab,
+    visualization: {
+      id: "vis_browser_onnx_tiny_cnn",
+      title: "Static ONNX-style Tiny CNN Inference",
+      equation: "image -> Conv/ReLU -> GAP -> Dense -> softmax",
+      parameters: [
+        { name: "input_pattern", symbol: "x", min: 0, max: 2, default: 0, description: "lane, box, empty 입력 패턴" },
+        { name: "feature_channel", symbol: "c", min: 0, max: 2, default: 0, description: "vertical edge, horizontal edge, blob channel" },
+        { name: "sensor_noise", symbol: "sigma", min: 0, max: 0.5, default: 0.08, description: "브라우저 추론 입력에 섞이는 센서 노이즈" },
+      ],
+      normalCase: "정적 weight와 입력 layout 계약이 맞아 feature map이 class confidence와 일관되게 연결된다.",
+      failureCase: "layout, normalization, noise gate가 어긋나면 class confidence가 흔들려 ROS 2 publish 단계에서 막아야 한다.",
+    },
+    quiz: {
+      id: "browser_onnx_tiny_cnn",
+      conceptQuestion: "브라우저에서 PyTorch 학습 대신 ONNX-style 정적 weight 데모를 두는 이유는?",
+      conceptAnswer: "무거운 torch/cv2 없이도 입력 shape, feature map, output confidence, 배포 gate를 즉시 확인하기 위해서다.",
+      calculationQuestion: "feature map 평균이 [0.1,0.2,0.3]이면 dense head 입력 차원은?",
+      calculationAnswer: "channel 3개의 GAP 결과이므로 입력 차원은 3이다.",
+      codeQuestion: "softmax 안정화를 위해 logits에서 먼저 빼는 값은?",
+      codeAnswer: "maxLogit을 빼고 exp를 계산한다.",
+      debugQuestion: "브라우저 추론 confidence가 Colab 결과와 다르면 먼저 무엇을 확인하는가?",
+      debugAnswer: "input name, NCHW/HWC layout, dtype, normalization, class order, weight artifact version을 확인한다.",
+      visualQuestion: "sensor noise를 키웠을 때 feature map과 confidence는 어떻게 변해야 하는가?",
+      visualAnswer: "feature map 활성 위치가 흐려지고 top class confidence가 낮아지거나 gate가 막힐 수 있다.",
+      robotQuestion: "confidence가 낮은 camera inference를 바로 cmd_vel로 연결하면 왜 위험한가?",
+      robotAnswer: "잘못된 lane/object를 근거로 actuator 명령이 나가므로 confidence와 stale timestamp gate가 필요하다.",
+      designQuestion: "브라우저 데모와 실제 ROS 2 배포 사이에 공유해야 할 계약은?",
+      designAnswer: "model artifact hash, input/output name, tensor layout, normalization, class order, confidence threshold, latency budget을 공유한다.",
+    },
+    wrongTagLabel: "브라우저 ONNX-style CNN 배포 계약 오류",
+    nextSessions: ["object_detection_yolo_ssd_pipeline", "pytorch_bc_onnx_export_contract"],
   }),
 ];
-

@@ -11,6 +11,7 @@ const normalize = (q: Quat): Quat => {
   return [q[0] / n, q[1] / n, q[2] / n, q[3] / n];
 };
 const dot = (a: Quat, b: Quat) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+const formatQuat = (q: Quat) => `[${q.map((value) => value.toFixed(3)).join(", ")}]`;
 const multiply = (a: Quat, b: Quat): Quat => [
   a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
   a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
@@ -102,13 +103,22 @@ export function QuaternionSlerpVisualizer() {
 
   const state = useMemo(() => {
     const q0: Quat = [1, 0, 0, 0];
+    const qRoll = fromEuler(targetRoll, 0, 0);
+    const qPitch = fromEuler(0, targetPitch, 0);
+    const qYaw = fromEuler(0, 0, targetYaw);
+    const qYawPitch = normalize(multiply(qYaw, qPitch));
+    const qExpanded = normalize(multiply(qYawPitch, qRoll));
     const q1 = fromEuler(targetRoll, targetPitch, targetYaw);
     const q = slerp(q0, q1, t, longPath);
     const bodyX = rotateVector(q, [1, 0, 0]);
     const bodyY = rotateVector(q, [0, 1, 0]);
     const bodyZ = rotateVector(q, [0, 0, 1]);
     const angularDistance = 2 * Math.acos(Math.min(1, Math.abs(dot(q0, q1))));
-    return { q0, q1, q, bodyX, bodyY, bodyZ, angularDistance };
+    const compositionError = Math.min(
+      norm([q1[0] - qExpanded[0], q1[1] - qExpanded[1], q1[2] - qExpanded[2], q1[3] - qExpanded[3]]),
+      norm([q1[0] + qExpanded[0], q1[1] + qExpanded[1], q1[2] + qExpanded[2], q1[3] + qExpanded[3]]),
+    );
+    return { q0, q1, q, qRoll, qPitch, qYaw, qExpanded, compositionError, bodyX, bodyY, bodyZ, angularDistance };
   }, [longPath, t, targetPitch, targetRoll, targetYaw]);
 
   const origin = project([0, 0, 0]);
@@ -155,9 +165,31 @@ export function QuaternionSlerpVisualizer() {
         </svg>
       </div>
       <div className="metrics-grid">
-        <div className="metric-card"><span>q(t)</span><strong>[{state.q.map((value) => value.toFixed(3)).join(", ")}]</strong></div>
+        <div className="metric-card"><span>q(t)</span><strong>{formatQuat(state.q)}</strong></div>
         <div className="metric-card"><span>||q(t)||</span><strong>{norm(state.q).toFixed(6)}</strong></div>
         <div className="metric-card"><span>angular distance</span><strong>{((state.angularDistance * 180) / Math.PI).toFixed(1)} deg</strong></div>
+      </div>
+      <div className="matrix-step-grid">
+        <div className="matrix-card">
+          <span>qroll</span>
+          <code>{formatQuat(state.qRoll)}</code>
+        </div>
+        <div className="matrix-card">
+          <span>qpitch</span>
+          <code>{formatQuat(state.qPitch)}</code>
+        </div>
+        <div className="matrix-card">
+          <span>qyaw</span>
+          <code>{formatQuat(state.qYaw)}</code>
+        </div>
+        <div className="matrix-card">
+          <span>Hamilton product</span>
+          <code>{`q = qyaw ⊗ qpitch ⊗ qroll\nw=aw*bw-ax*bx-ay*by-az*bz\nx=aw*bx+ax*bw+ay*bz-az*by\ny=aw*by-ax*bz+ay*bw+az*bx\nz=aw*bz+ax*by-ay*bx+az*bw`}</code>
+        </div>
+        <div className="matrix-card">
+          <span>expanded target</span>
+          <code>{`${formatQuat(state.qExpanded)}\ncomposition error=${state.compositionError.toExponential(1)}`}</code>
+        </div>
       </div>
       <div className="hint-box">
         Quaternion은 3D 회전을 안전하게 표현하는 숫자 4개 묶음이다. 정규화를 빼먹으면 회전이 아니라 scale이 섞인 이상한 변환처럼 동작한다.
